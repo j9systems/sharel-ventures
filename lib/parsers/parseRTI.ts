@@ -79,8 +79,8 @@ export function parseRTI(csvText: string): ParseResult<ParsedRTIRow> {
 }
 
 function parseDate(dateStr: string): string | null {
-  // Expected format: M/D/YYYY
-  const parts = dateStr.split("/");
+  // Expected format: M/D/YYYY or MM-DD-YYYY
+  const parts = dateStr.replace(/-/g, "/").split("/");
   if (parts.length !== 3) return null;
 
   const month = parseInt(parts[0], 10);
