@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getReconciliationSession, getReconciliationResults } from "@/app/actions";
 import { SummaryBar } from "@/components/SummaryBar";
 import { ReconciliationTable } from "@/components/ReconciliationTable";
