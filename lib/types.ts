@@ -65,6 +65,7 @@ export interface ReconciliationSession {
   entity_id: string;
   rti_upload_id: string;
   bank_upload_id: string;
+  bank_upload_ids: string[];
   created_at: string;
   completed_at: string | null;
   status: string;
