@@ -49,10 +49,10 @@ export default function HomePage() {
   useEffect(() => {
     getEntities()
       .then((data) => setEntities(data ?? []))
-      .catch(() => {});
+      .catch((err) => console.error("getEntities failed:", err));
     getRecentSessions()
       .then((data) => setRecentSessions((data as RecentSession[]) ?? []))
-      .catch(() => {});
+      .catch((err) => console.error("getRecentSessions failed:", err));
   }, []);
 
   const handleEntityChange = useCallback(
