@@ -113,8 +113,15 @@ export default function HomePage() {
       formData.set("bankFile", bankFile);
 
       const result = await uploadAndReconcile(formData);
-      setStatusMessage("Complete! Redirecting...");
 
+      if (!result.success) {
+        setError(result.error);
+        setProcessing(false);
+        setStatusMessage("");
+        return;
+      }
+
+      setStatusMessage("Complete! Redirecting...");
       router.push(`/reconciliation/${result.sessionId}`);
     } catch (err: unknown) {
       const message =

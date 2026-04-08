@@ -42,7 +42,10 @@ export async function runReconciliation(
     .eq("is_deposit", true)
     .order("transaction_date", { ascending: true });
 
-  if (rtiErr) throw new Error(`Failed to fetch RTI deposits: ${rtiErr.message}`);
+  if (rtiErr) {
+    console.error("[runReconciliation] Failed to fetch RTI deposits:", rtiErr);
+    throw new Error(`Failed to fetch RTI deposits: ${rtiErr.message}`);
+  }
 
   // Step 2: Pull bank physical deposits
   const { data: bankRows, error: bankErr } = await supabase
@@ -52,7 +55,10 @@ export async function runReconciliation(
     .eq("transaction_category", "physical_deposit")
     .order("post_date", { ascending: true });
 
-  if (bankErr) throw new Error(`Failed to fetch bank deposits: ${bankErr.message}`);
+  if (bankErr) {
+    console.error("[runReconciliation] Failed to fetch bank deposits:", bankErr);
+    throw new Error(`Failed to fetch bank deposits: ${bankErr.message}`);
+  }
 
   // Step 3: Create reconciliation session
   const { data: session, error: sessionErr } = await supabase
@@ -72,7 +78,10 @@ export async function runReconciliation(
     .select("id")
     .single();
 
-  if (sessionErr) throw new Error(`Failed to create session: ${sessionErr.message}`);
+  if (sessionErr) {
+    console.error("[runReconciliation] Failed to create session:", sessionErr);
+    throw new Error(`Failed to create session: ${sessionErr.message}`);
+  }
   const sessionId = session.id;
 
   // Step 4: Match
@@ -201,7 +210,10 @@ export async function runReconciliation(
     const { error: insertErr } = await supabase
       .from("reconciliation_results")
       .insert(batch);
-    if (insertErr) throw new Error(`Failed to insert results: ${insertErr.message}`);
+    if (insertErr) {
+      console.error("[runReconciliation] Failed to insert results:", insertErr);
+      throw new Error(`Failed to insert results: ${insertErr.message}`);
+    }
   }
 
   // Step 5: Update session with summary
@@ -217,7 +229,10 @@ export async function runReconciliation(
     })
     .eq("id", sessionId);
 
-  if (updateErr) throw new Error(`Failed to update session: ${updateErr.message}`);
+  if (updateErr) {
+    console.error("[runReconciliation] Failed to update session:", updateErr);
+    throw new Error(`Failed to update session: ${updateErr.message}`);
+  }
 
   return sessionId;
 }
