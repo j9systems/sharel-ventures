@@ -41,9 +41,12 @@ function getRtiUpload(session: RecentSession): UploadInfo | undefined {
   return Array.isArray(session.rti_uploads) ? session.rti_uploads[0] : session.rti_uploads;
 }
 
-function getBankUpload(session: RecentSession): BankUploadInfo | undefined {
-  if (!session.bank_uploads) return undefined;
-  return Array.isArray(session.bank_uploads) ? session.bank_uploads[0] : session.bank_uploads;
+function getBankFileNames(session: RecentSession): string[] {
+  if (!session.bank_uploads) return [];
+  if (Array.isArray(session.bank_uploads)) {
+    return session.bank_uploads.map((b) => b.file_name);
+  }
+  return [session.bank_uploads.file_name];
 }
 
 export default function HomePage() {
@@ -52,9 +55,9 @@ export default function HomePage() {
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [bankParserAvailable, setBankParserAvailable] = useState(true);
   const [rtiFile, setRtiFile] = useState<File | null>(null);
-  const [bankFile, setBankFile] = useState<File | null>(null);
+  const [bankFiles, setBankFiles] = useState<File[]>([]);
   const [rtiPreview, setRtiPreview] = useState("");
-  const [bankPreview, setBankPreview] = useState("");
+  const [bankPreviews, setBankPreviews] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState("");
@@ -73,8 +76,8 @@ export default function HomePage() {
     async (entityId: string) => {
       const entity = entities.find((e) => e.id === entityId) ?? null;
       setSelectedEntity(entity);
-      setBankFile(null);
-      setBankPreview("");
+      setBankFiles([]);
+      setBankPreviews([]);
       setError("");
 
       if (entity) {
@@ -93,21 +96,35 @@ export default function HomePage() {
     setRtiPreview(`${lines} rows detected`);
   }, []);
 
-  const handleBankSelect = useCallback(async (file: File) => {
-    setBankFile(file);
+  const handleBankFilesAdd = useCallback(async (files: File[]) => {
     setError("");
-    const ext = file.name.toLowerCase().split(".").pop();
-    if (ext === "csv") {
-      const text = await file.text();
-      const lines = text.split("\n").filter((l) => l.trim()).length;
-      setBankPreview(`${lines - 1} data rows (CSV)`);
-    } else {
-      setBankPreview(`Excel file selected`);
+    const newPreviews: string[] = [];
+    for (const file of files) {
+      const ext = file.name.toLowerCase().split(".").pop();
+      if (ext === "csv") {
+        const text = await file.text();
+        const lines = text.split("\n").filter((l) => l.trim()).length;
+        newPreviews.push(`${lines - 1} data rows (CSV)`);
+      } else {
+        newPreviews.push(`Excel file`);
+      }
     }
+    setBankFiles((prev) => [...prev, ...files]);
+    setBankPreviews((prev) => [...prev, ...newPreviews]);
+  }, []);
+
+  const handleBankFileRemove = useCallback((index: number) => {
+    setBankFiles((prev) => prev.filter((_, i) => i !== index));
+    setBankPreviews((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleBankFilesClear = useCallback(() => {
+    setBankFiles([]);
+    setBankPreviews([]);
   }, []);
 
   const handleReconcile = async () => {
-    if (!selectedEntity || !rtiFile || !bankFile) return;
+    if (!selectedEntity || !rtiFile || bankFiles.length === 0) return;
     setProcessing(true);
     setError("");
 
@@ -115,7 +132,7 @@ export default function HomePage() {
       setStatusMessage("Parsing RTI export...");
       await new Promise((r) => setTimeout(r, 200));
 
-      setStatusMessage("Parsing bank statement...");
+      setStatusMessage(`Parsing ${bankFiles.length} bank statement${bankFiles.length > 1 ? "s" : ""}...`);
       await new Promise((r) => setTimeout(r, 200));
 
       setStatusMessage("Running reconciliation...");
@@ -124,7 +141,9 @@ export default function HomePage() {
       formData.set("entityId", selectedEntity.id);
       formData.set("entityName", selectedEntity.name);
       formData.set("rtiFile", rtiFile);
-      formData.set("bankFile", bankFile);
+      for (const file of bankFiles) {
+        formData.append("bankFiles", file);
+      }
 
       const result = await uploadAndReconcile(formData);
 
@@ -147,7 +166,7 @@ export default function HomePage() {
   };
 
   const canReconcile =
-    selectedEntity && rtiFile && bankFile && bankParserAvailable && !processing;
+    selectedEntity && rtiFile && bankFiles.length > 0 && bankParserAvailable && !processing;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
@@ -187,22 +206,21 @@ export default function HomePage() {
           preview={rtiPreview}
         />
         <UploadPanel
-          title="Bank Statement"
+          title="Bank Statements"
           accept=".xls,.xlsx,.csv"
-          description="XLS, XLSX, or CSV bank export"
+          description="XLS, XLSX, or CSV bank exports (multiple files supported)"
           disabled={!selectedEntity || !bankParserAvailable}
           disabledMessage={
             !selectedEntity
               ? "Select an entity first"
               : `${selectedEntity.name} bank parser coming soon`
           }
-          onFileSelect={handleBankSelect}
-          onFileClear={() => {
-            setBankFile(null);
-            setBankPreview("");
-          }}
-          selectedFile={bankFile}
-          preview={bankPreview}
+          multiple
+          onFilesAdd={handleBankFilesAdd}
+          onFileRemove={handleBankFileRemove}
+          onFilesClear={handleBankFilesClear}
+          selectedFiles={bankFiles}
+          previews={bankPreviews}
         />
       </div>
 
@@ -245,7 +263,13 @@ export default function HomePage() {
           <div className="space-y-2">
             {recentSessions.map((session) => {
               const rti = getRtiUpload(session);
-              const bank = getBankUpload(session);
+              const bankNames = getBankFileNames(session);
+              const bankLabel =
+                bankNames.length === 0
+                  ? "Unknown Bank"
+                  : bankNames.length === 1
+                    ? bankNames[0]
+                    : `${bankNames.length} bank files`;
               return (
                 <div
                   key={session.id}
@@ -276,7 +300,7 @@ export default function HomePage() {
                       </div>
                       <p className="text-xs text-[var(--muted-foreground)] mt-0.5 truncate">
                         {rti?.file_name ?? "Unknown RTI"} •{" "}
-                        {bank?.file_name ?? "Unknown Bank"}
+                        {bankLabel}
                       </p>
                     </div>
                     <div className="flex items-center gap-3 text-xs shrink-0">

@@ -32,7 +32,7 @@ function addDays(dateStr: string, days: number): string {
 export async function runReconciliation(
   entityId: string,
   rtiUploadId: string,
-  bankUploadId: string
+  bankUploadIds: string[]
 ): Promise<string> {
   // Step 1: Pull RTI deposits
   const { data: rtiRows, error: rtiErr } = await supabase
@@ -47,29 +47,42 @@ export async function runReconciliation(
     throw new Error(`Failed to fetch RTI deposits: ${rtiErr.message}`);
   }
 
-  // Step 2: Pull bank physical deposits
-  const { data: bankRows, error: bankErr } = await supabase
-    .from("bank_transactions")
-    .select("id, post_date, credit")
-    .eq("upload_id", bankUploadId)
-    .eq("transaction_category", "physical_deposit")
-    .order("post_date", { ascending: true });
+  // Step 2: Pull bank physical deposits from all bank uploads
+  const allBankRows: BankDeposit[] = [];
+  for (const bankUploadId of bankUploadIds) {
+    const { data: bankRows, error: bankErr } = await supabase
+      .from("bank_transactions")
+      .select("id, post_date, credit")
+      .eq("upload_id", bankUploadId)
+      .eq("transaction_category", "physical_deposit")
+      .order("post_date", { ascending: true });
 
-  if (bankErr) {
-    console.error("[runReconciliation] Failed to fetch bank deposits:", bankErr);
-    throw new Error(`Failed to fetch bank deposits: ${bankErr.message}`);
+    if (bankErr) {
+      console.error("[runReconciliation] Failed to fetch bank deposits:", bankErr);
+      throw new Error(`Failed to fetch bank deposits: ${bankErr.message}`);
+    }
+
+    if (bankRows) {
+      allBankRows.push(...bankRows);
+    }
   }
 
+  // Sort combined bank deposits by post_date
+  allBankRows.sort((a, b) => a.post_date.localeCompare(b.post_date));
+
   // Step 3: Create reconciliation session
+  // bank_upload_id stores the first upload for FK compatibility,
+  // bank_upload_ids stores all upload IDs
   const { data: session, error: sessionErr } = await supabase
     .from("reconciliation_sessions")
     .insert({
       entity_id: entityId,
       rti_upload_id: rtiUploadId,
-      bank_upload_id: bankUploadId,
+      bank_upload_id: bankUploadIds[0],
+      bank_upload_ids: bankUploadIds,
       status: "processing",
       total_rti_deposits: rtiRows?.length ?? 0,
-      total_bank_deposits: bankRows?.length ?? 0,
+      total_bank_deposits: allBankRows.length,
       matched_count: 0,
       discrepancy_count: 0,
       unmatched_rti_count: 0,
@@ -86,7 +99,7 @@ export async function runReconciliation(
 
   // Step 4: Match
   const rtiDeposits: RTIDeposit[] = rtiRows ?? [];
-  const bankPool: BankDeposit[] = [...(bankRows ?? [])];
+  const bankPool: BankDeposit[] = [...allBankRows];
   const results: ResultInsert[] = [];
 
   let matchedCount = 0;

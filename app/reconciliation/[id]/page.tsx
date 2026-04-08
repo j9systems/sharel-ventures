@@ -50,6 +50,16 @@ export default async function ReconciliationPage({ params }: PageProps) {
     ? `${rtiUpload.date_from} — ${rtiUpload.date_to}`
     : "Unknown dates";
 
+  const bankUploads = session.bank_uploads as
+    | { file_name: string }[]
+    | { file_name: string }
+    | null;
+  const bankFileNames = Array.isArray(bankUploads)
+    ? bankUploads.map((b) => b.file_name)
+    : bankUploads
+      ? [bankUploads.file_name]
+      : [];
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       {/* Header */}
@@ -66,6 +76,13 @@ export default async function ReconciliationPage({ params }: PageProps) {
           <div>
             <h2 className="text-xl font-semibold">{entityName} Reconciliation</h2>
             <p className="text-sm text-[var(--muted-foreground)] mt-1">{dateRange}</p>
+            {bankFileNames.length > 0 && (
+              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+                {bankFileNames.length === 1
+                  ? `Bank: ${bankFileNames[0]}`
+                  : `${bankFileNames.length} bank statements: ${bankFileNames.join(", ")}`}
+              </p>
+            )}
           </div>
 
           <SummaryBar

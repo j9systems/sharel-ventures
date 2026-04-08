@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { parseRTI } from "@/lib/parsers/parseRTI";
 import { getBankParser, isBankParserAvailable } from "@/lib/parsers/parseBank";
 import { runReconciliation } from "@/lib/reconcile";
+import type { ParsedBankRow, ParseResult } from "@/lib/types";
 
 export async function getEntities() {
   const { data, error } = await supabase
@@ -24,6 +25,7 @@ export async function getRecentSessions() {
       `id, entity_id, status, created_at, completed_at,
        matched_count, discrepancy_count, unmatched_rti_count, unmatched_bank_count,
        total_rti_deposits, total_bank_deposits,
+       bank_upload_ids,
        rti_uploads(file_name, date_from, date_to),
        bank_uploads(file_name)`
     )
@@ -33,6 +35,23 @@ export async function getRecentSessions() {
     console.error("[getRecentSessions] Supabase error:", error);
     throw new Error(error.message);
   }
+
+  // For sessions with multiple bank uploads, fetch all bank file names
+  if (data) {
+    for (const session of data) {
+      const ids: string[] = (session as Record<string, unknown>).bank_upload_ids as string[] ?? [];
+      if (ids.length > 1) {
+        const { data: bankUploads } = await supabase
+          .from("bank_uploads")
+          .select("file_name")
+          .in("id", ids);
+        if (bankUploads) {
+          (session as Record<string, unknown>).bank_uploads = bankUploads;
+        }
+      }
+    }
+  }
+
   return data;
 }
 
@@ -49,9 +68,9 @@ export async function uploadAndReconcile(formData: FormData): Promise<UploadResu
     const entityId = formData.get("entityId") as string;
     const entityName = formData.get("entityName") as string;
     const rtiFile = formData.get("rtiFile") as File;
-    const bankFile = formData.get("bankFile") as File;
+    const bankFileEntries = formData.getAll("bankFiles") as File[];
 
-    if (!entityId || !rtiFile || !bankFile) {
+    if (!entityId || !rtiFile || bankFileEntries.length === 0) {
       return { success: false, error: "Missing required fields" };
     }
 
@@ -82,36 +101,26 @@ export async function uploadAndReconcile(formData: FormData): Promise<UploadResu
       };
     }
 
-    // Parse bank file
+    // Parse all bank files
     const parser = getBankParser(entityName);
     if (!parser) {
       return { success: false, error: `No bank parser available for entity "${entityName}"` };
     }
 
-    const bankBuffer = Buffer.from(await bankFile.arrayBuffer());
-    const bankResult = parser.parse(bankBuffer, bankFile.name);
+    const bankParseResults: { file: File; result: ParseResult<ParsedBankRow> }[] = [];
 
-    if (bankResult.rows.length === 0) {
-      const detail = bankResult.errors.length > 0
-        ? ` Errors: ${bankResult.errors.slice(0, 3).join("; ")}`
-        : "";
-      return { success: false, error: `Bank file contains no valid rows.${detail}` };
-    }
+    for (const bankFile of bankFileEntries) {
+      const bankBuffer = Buffer.from(await bankFile.arrayBuffer());
+      const bankResult = parser.parse(bankBuffer, bankFile.name);
 
-    // Check for duplicate bank upload
-    const { data: existingBank } = await supabase
-      .from("bank_uploads")
-      .select("id, file_name")
-      .eq("entity_id", entityId)
-      .eq("date_from", bankResult.dateFrom)
-      .eq("date_to", bankResult.dateTo)
-      .limit(1);
+      if (bankResult.rows.length === 0) {
+        const detail = bankResult.errors.length > 0
+          ? ` Errors: ${bankResult.errors.slice(0, 3).join("; ")}`
+          : "";
+        return { success: false, error: `Bank file "${bankFile.name}" contains no valid rows.${detail}` };
+      }
 
-    if (existingBank && existingBank.length > 0) {
-      return {
-        success: false,
-        error: `A bank upload already exists for ${bankResult.dateFrom} to ${bankResult.dateTo} (file: ${existingBank[0].file_name}). Delete it first or use a different date range.`,
-      };
+      bankParseResults.push({ file: bankFile, result: bankResult });
     }
 
     // Insert RTI upload
@@ -155,57 +164,60 @@ export async function uploadAndReconcile(formData: FormData): Promise<UploadResu
       }
     }
 
-    // Determine bank file format
-    const ext = bankFile.name.toLowerCase().split(".").pop() ?? "";
-    const fileFormat = ext === "csv" ? "csv" : "xls";
+    // Insert each bank file as a separate bank upload and collect IDs
+    const bankUploadIds: string[] = [];
 
-    // Extract account number from first row
-    const accountNumber = bankResult.rows[0]?.account_number ?? "";
+    for (const { file: bankFile, result: bankResult } of bankParseResults) {
+      const ext = bankFile.name.toLowerCase().split(".").pop() ?? "";
+      const fileFormat = ext === "csv" ? "csv" : "xls";
+      const accountNumber = bankResult.rows[0]?.account_number ?? "";
 
-    // Insert bank upload
-    const { data: bankUpload, error: bankUploadErr } = await supabase
-      .from("bank_uploads")
-      .insert({
-        entity_id: entityId,
-        file_name: bankFile.name,
-        file_format: fileFormat,
-        bank_name: "Unknown",
-        account_number: accountNumber,
-        date_from: bankResult.dateFrom,
-        date_to: bankResult.dateTo,
-        row_count: bankResult.rows.length,
-      })
-      .select("id")
-      .single();
+      const { data: bankUpload, error: bankUploadErr } = await supabase
+        .from("bank_uploads")
+        .insert({
+          entity_id: entityId,
+          file_name: bankFile.name,
+          file_format: fileFormat,
+          bank_name: "Unknown",
+          account_number: accountNumber,
+          date_from: bankResult.dateFrom,
+          date_to: bankResult.dateTo,
+          row_count: bankResult.rows.length,
+        })
+        .select("id")
+        .single();
 
-    if (bankUploadErr) {
-      console.error("[uploadAndReconcile] Bank upload insert failed:", bankUploadErr);
-      return { success: false, error: `Failed to save bank upload: ${bankUploadErr.message}` };
-    }
+      if (bankUploadErr) {
+        console.error("[uploadAndReconcile] Bank upload insert failed:", bankUploadErr);
+        return { success: false, error: `Failed to save bank upload for "${bankFile.name}": ${bankUploadErr.message}` };
+      }
 
-    // Insert bank transactions in batches
-    const bankTransactions = bankResult.rows.map((row) => ({
-      upload_id: bankUpload.id,
-      post_date: row.post_date,
-      description: row.description,
-      credit: row.credit,
-      debit: row.debit,
-      status: row.status,
-      transaction_category: row.transaction_category,
-      store_number: row.store_number,
-    }));
+      bankUploadIds.push(bankUpload.id);
 
-    for (let i = 0; i < bankTransactions.length; i += 500) {
-      const batch = bankTransactions.slice(i, i + 500);
-      const { error } = await supabase.from("bank_transactions").insert(batch);
-      if (error) {
-        console.error("[uploadAndReconcile] Bank transactions insert failed:", error);
-        return { success: false, error: `Failed to insert bank transactions: ${error.message}` };
+      // Insert bank transactions in batches
+      const bankTransactions = bankResult.rows.map((row) => ({
+        upload_id: bankUpload.id,
+        post_date: row.post_date,
+        description: row.description,
+        credit: row.credit,
+        debit: row.debit,
+        status: row.status,
+        transaction_category: row.transaction_category,
+        store_number: row.store_number,
+      }));
+
+      for (let i = 0; i < bankTransactions.length; i += 500) {
+        const batch = bankTransactions.slice(i, i + 500);
+        const { error } = await supabase.from("bank_transactions").insert(batch);
+        if (error) {
+          console.error("[uploadAndReconcile] Bank transactions insert failed:", error);
+          return { success: false, error: `Failed to insert bank transactions for "${bankFile.name}": ${error.message}` };
+        }
       }
     }
 
-    // Run reconciliation
-    const sessionId = await runReconciliation(entityId, rtiUpload.id, bankUpload.id);
+    // Run reconciliation against all bank uploads
+    const sessionId = await runReconciliation(entityId, rtiUpload.id, bankUploadIds);
 
     return { success: true, sessionId };
   } catch (err) {
@@ -228,6 +240,19 @@ export async function getReconciliationSession(sessionId: string) {
     .single();
 
   if (error) throw new Error(error.message);
+
+  // For sessions with multiple bank uploads, fetch all bank file names
+  const bankUploadIds: string[] = data.bank_upload_ids ?? [];
+  if (bankUploadIds.length > 1) {
+    const { data: bankUploads } = await supabase
+      .from("bank_uploads")
+      .select("file_name")
+      .in("id", bankUploadIds);
+    if (bankUploads) {
+      data.bank_uploads = bankUploads;
+    }
+  }
+
   return data;
 }
 
@@ -250,7 +275,7 @@ export async function deleteReconciliationSession(sessionId: string) {
   // Get session to find related upload IDs
   const { data: session, error: fetchErr } = await supabase
     .from("reconciliation_sessions")
-    .select("rti_upload_id, bank_upload_id")
+    .select("rti_upload_id, bank_upload_id, bank_upload_ids")
     .eq("id", sessionId)
     .single();
 
@@ -270,14 +295,17 @@ export async function deleteReconciliationSession(sessionId: string) {
     .eq("id", sessionId);
   if (sessionErr) throw new Error(sessionErr.message);
 
-  // Delete related transactions and uploads
+  // Delete related RTI transactions and upload
   if (session.rti_upload_id) {
     await supabase.from("rti_transactions").delete().eq("upload_id", session.rti_upload_id);
     await supabase.from("rti_uploads").delete().eq("id", session.rti_upload_id);
   }
-  if (session.bank_upload_id) {
-    await supabase.from("bank_transactions").delete().eq("upload_id", session.bank_upload_id);
-    await supabase.from("bank_uploads").delete().eq("id", session.bank_upload_id);
+
+  // Delete all related bank transactions and uploads
+  const bankIds: string[] = session.bank_upload_ids ?? (session.bank_upload_id ? [session.bank_upload_id] : []);
+  for (const bankUploadId of bankIds) {
+    await supabase.from("bank_transactions").delete().eq("upload_id", bankUploadId);
+    await supabase.from("bank_uploads").delete().eq("id", bankUploadId);
   }
 }
 
