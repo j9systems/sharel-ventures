@@ -219,7 +219,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
   }) => (
     <button
       onClick={() => toggleSort(field)}
-      className="flex items-center gap-1 hover:text-white transition-colors"
+      className="flex items-center gap-1 hover:text-[var(--foreground)] transition-colors"
     >
       {children}
       <ArrowUpDown className="h-3 w-3" />
@@ -233,7 +233,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as MatchStatus | "all")}
-          className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:ring-1 focus:ring-[#7c3aed]"
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
         >
           <option value="all">All Statuses</option>
           <option value="matched">Matched</option>
@@ -245,7 +245,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
         <select
           value={storeFilter}
           onChange={(e) => setStoreFilter(e.target.value)}
-          className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:ring-1 focus:ring-[#7c3aed]"
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
         >
           <option value="">All Stores</option>
           {stores.map((s) => (
@@ -257,13 +257,13 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
 
         <div className="flex-1" />
 
-        <span className="text-xs text-[#a3a3a3]">
+        <span className="text-xs text-[var(--muted-foreground)]">
           {sorted.length} of {localResults.length} results
         </span>
 
         <button
           onClick={exportCSV}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-sm text-[#a3a3a3] hover:text-white hover:border-[#404040] transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--muted-foreground)] transition-colors"
         >
           <Download className="h-4 w-4" />
           Export CSV
@@ -271,11 +271,11 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-[#2a2a2a] overflow-hidden">
+      <div className="rounded-xl border border-[var(--border)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#1a1a1a] text-[#a3a3a3] text-left">
+              <tr className="bg-[var(--card)] text-[var(--muted-foreground)] text-left">
                 <th className="px-4 py-3 font-medium">
                   <SortButton field="store">Store</SortButton>
                 </th>
@@ -298,7 +298,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1f1f1f]">
+            <tbody className="divide-y divide-[var(--border)]">
               {sorted.map((row) => {
                 const store =
                   row.rti_transactions?.store_number ?? "Unknown";
@@ -314,23 +314,23 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                 return (
                   <tr
                     key={row.id}
-                    className="bg-[#0f0f0f] hover:bg-[#161616] transition-colors"
+                    className="bg-[var(--background)] hover:bg-[var(--muted)] transition-colors"
                   >
                     <td className="px-4 py-3 font-mono text-xs">
                       {store !== "Unknown" ? `#${store}` : store}
                     </td>
-                    <td className="px-4 py-3 text-[#a3a3a3]">{date}</td>
+                    <td className="px-4 py-3 text-[var(--muted-foreground)]">{date}</td>
                     <td className="px-4 py-3">{depositType}</td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${
-                        row.rti_amount === null ? "text-[#404040]" : ""
+                        row.rti_amount === null ? "text-[var(--muted-foreground)]" : ""
                       }`}
                     >
                       {formatCurrency(row.rti_amount)}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${
-                        row.bank_amount === null ? "text-[#404040]" : ""
+                        row.bank_amount === null ? "text-[var(--muted-foreground)]" : ""
                       }`}
                     >
                       {formatCurrency(row.bank_amount)}
@@ -341,7 +341,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                           {formatDelta(row.delta)}
                         </span>
                       ) : (
-                        <span className="text-[#404040]">—</span>
+                        <span className="text-[var(--muted-foreground)]">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -357,7 +357,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                                 placeholder="Note..."
                                 value={reviewNote}
                                 onChange={(e) => setReviewNote(e.target.value)}
-                                className="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-[#7c3aed]"
+                                className="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") handleReview(row.id);
                                 }}
@@ -374,7 +374,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                                   setReviewingId(null);
                                   setReviewNote("");
                                 }}
-                                className="p-1 rounded hover:bg-[#2a2a2a] text-[#a3a3a3] transition-colors"
+                                className="p-1 rounded hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors"
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
@@ -382,7 +382,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                           ) : (
                             <button
                               onClick={() => setReviewingId(row.id)}
-                              className="text-xs text-[#7c3aed] hover:text-[#9b6aed] transition-colors"
+                              className="text-xs text-[var(--primary)] hover:opacity-80 transition-colors"
                             >
                               Mark Resolved
                             </button>
@@ -390,7 +390,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                         </>
                       )}
                       {row.reviewed && (
-                        <span className="flex items-center gap-1 text-xs text-[#666]">
+                        <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
                           <Check className="h-3 w-3" />
                           Resolved
                           {row.review_note && (
@@ -411,7 +411,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                 <tr>
                   <td
                     colSpan={8}
-                    className="px-4 py-12 text-center text-[#a3a3a3]"
+                    className="px-4 py-12 text-center text-[var(--muted-foreground)]"
                   >
                     No results match your filters
                   </td>

@@ -246,6 +246,41 @@ export async function getReconciliationResults(sessionId: string) {
   return data;
 }
 
+export async function deleteReconciliationSession(sessionId: string) {
+  // Get session to find related upload IDs
+  const { data: session, error: fetchErr } = await supabase
+    .from("reconciliation_sessions")
+    .select("rti_upload_id, bank_upload_id")
+    .eq("id", sessionId)
+    .single();
+
+  if (fetchErr) throw new Error(fetchErr.message);
+
+  // Delete reconciliation results first (child records)
+  const { error: resultsErr } = await supabase
+    .from("reconciliation_results")
+    .delete()
+    .eq("session_id", sessionId);
+  if (resultsErr) throw new Error(resultsErr.message);
+
+  // Delete the session itself
+  const { error: sessionErr } = await supabase
+    .from("reconciliation_sessions")
+    .delete()
+    .eq("id", sessionId);
+  if (sessionErr) throw new Error(sessionErr.message);
+
+  // Delete related transactions and uploads
+  if (session.rti_upload_id) {
+    await supabase.from("rti_transactions").delete().eq("upload_id", session.rti_upload_id);
+    await supabase.from("rti_uploads").delete().eq("id", session.rti_upload_id);
+  }
+  if (session.bank_upload_id) {
+    await supabase.from("bank_transactions").delete().eq("upload_id", session.bank_upload_id);
+    await supabase.from("bank_uploads").delete().eq("id", session.bank_upload_id);
+  }
+}
+
 export async function markResultReviewed(resultId: string, note: string) {
   const { error } = await supabase
     .from("reconciliation_results")

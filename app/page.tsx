@@ -8,13 +8,17 @@ import {
   getRecentSessions,
   uploadAndReconcile,
   checkEntityBankParser,
+  deleteReconciliationSession,
 } from "./actions";
-import { FileText, ArrowRight, Loader2 } from "lucide-react";
+import { FileText, ArrowRight, Loader2, Trash2 } from "lucide-react";
 
 interface Entity {
   id: string;
   name: string;
 }
+
+type UploadInfo = { file_name: string; date_from: string; date_to: string };
+type BankUploadInfo = { file_name: string };
 
 interface RecentSession {
   id: string;
@@ -28,8 +32,18 @@ interface RecentSession {
   unmatched_bank_count: number;
   total_rti_deposits: number;
   total_bank_deposits: number;
-  rti_uploads: { file_name: string; date_from: string; date_to: string }[] | null;
-  bank_uploads: { file_name: string }[] | null;
+  rti_uploads: UploadInfo[] | UploadInfo | null;
+  bank_uploads: BankUploadInfo[] | BankUploadInfo | null;
+}
+
+function getRtiUpload(session: RecentSession): UploadInfo | undefined {
+  if (!session.rti_uploads) return undefined;
+  return Array.isArray(session.rti_uploads) ? session.rti_uploads[0] : session.rti_uploads;
+}
+
+function getBankUpload(session: RecentSession): BankUploadInfo | undefined {
+  if (!session.bank_uploads) return undefined;
+  return Array.isArray(session.bank_uploads) ? session.bank_uploads[0] : session.bank_uploads;
 }
 
 export default function HomePage() {
@@ -139,13 +153,13 @@ export default function HomePage() {
     <div className="max-w-5xl mx-auto px-6 py-10">
       {/* Entity selector */}
       <div className="mb-8">
-        <label className="block text-sm font-medium text-[#a3a3a3] mb-2">
+        <label className="block text-sm font-medium text-[var(--muted-foreground)] mb-2">
           Select Entity
         </label>
         <select
           value={selectedEntity?.id ?? ""}
           onChange={(e) => handleEntityChange(e.target.value)}
-          className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-sm text-[#f5f5f5] w-full max-w-xs focus:outline-none focus:ring-1 focus:ring-[#7c3aed]"
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--foreground)] w-full max-w-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
         >
           <option value="">Choose entity...</option>
           {entities.map((e) => (
@@ -220,63 +234,87 @@ export default function HomePage() {
 
       {/* Recent sessions */}
       <div>
-        <h2 className="text-sm font-medium text-[#a3a3a3] mb-4">
+        <h2 className="text-sm font-medium text-[var(--muted-foreground)] mb-4">
           Recent Reconciliations
         </h2>
         {recentSessions.length === 0 ? (
-          <p className="text-sm text-[#666] py-8 text-center">
+          <p className="text-sm text-[var(--muted-foreground)] py-8 text-center">
             No reconciliations yet. Upload files above to get started.
           </p>
         ) : (
           <div className="space-y-2">
-            {recentSessions.map((session) => (
-              <button
-                key={session.id}
-                onClick={() =>
-                  router.push(`/reconciliation/${session.id}`)
-                }
-                className="w-full flex items-center gap-4 p-4 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#404040] transition-colors text-left"
-              >
-                <FileText className="h-5 w-5 text-[#7c3aed] shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {session.rti_uploads?.[0]?.date_from ?? "?"} —{" "}
-                      {session.rti_uploads?.[0]?.date_to ?? "?"}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        session.status === "complete"
-                          ? "bg-green-500/15 text-green-400"
-                          : "bg-yellow-500/15 text-yellow-400"
-                      }`}
-                    >
-                      {session.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#a3a3a3] mt-0.5 truncate">
-                    {session.rti_uploads?.[0]?.file_name ?? "Unknown RTI"} •{" "}
-                    {session.bank_uploads?.[0]?.file_name ?? "Unknown Bank"}
-                  </p>
+            {recentSessions.map((session) => {
+              const rti = getRtiUpload(session);
+              const bank = getBankUpload(session);
+              return (
+                <div
+                  key={session.id}
+                  className="flex items-center gap-2"
+                >
+                  <button
+                    onClick={() =>
+                      router.push(`/reconciliation/${session.id}`)
+                    }
+                    className="flex-1 flex items-center gap-4 p-4 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--muted-foreground)] transition-colors text-left"
+                  >
+                    <FileText className="h-5 w-5 text-[var(--primary)] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {rti?.date_from ?? "?"} —{" "}
+                          {rti?.date_to ?? "?"}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${
+                            session.status === "complete"
+                              ? "bg-green-500/15 text-green-400"
+                              : "bg-yellow-500/15 text-yellow-400"
+                          }`}
+                        >
+                          {session.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--muted-foreground)] mt-0.5 truncate">
+                        {rti?.file_name ?? "Unknown RTI"} •{" "}
+                        {bank?.file_name ?? "Unknown Bank"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs shrink-0">
+                      <span className="text-green-400">
+                        {session.matched_count} matched
+                      </span>
+                      {session.discrepancy_count > 0 && (
+                        <span className="text-yellow-400">
+                          {session.discrepancy_count} disc.
+                        </span>
+                      )}
+                      {session.unmatched_rti_count > 0 && (
+                        <span className="text-red-400">
+                          {session.unmatched_rti_count} unmatched
+                        </span>
+                      )}
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-[var(--muted-foreground)]" />
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm("Delete this reconciliation run? This cannot be undone.")) return;
+                      try {
+                        await deleteReconciliationSession(session.id);
+                        setRecentSessions((prev) => prev.filter((s) => s.id !== session.id));
+                      } catch {
+                        setError("Failed to delete reconciliation session.");
+                      }
+                    }}
+                    className="p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-red-500/50 hover:bg-red-500/10 text-[var(--muted-foreground)] hover:text-red-400 transition-colors shrink-0"
+                    title="Delete reconciliation"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="flex items-center gap-3 text-xs shrink-0">
-                  <span className="text-green-400">
-                    {session.matched_count} matched
-                  </span>
-                  {session.discrepancy_count > 0 && (
-                    <span className="text-yellow-400">
-                      {session.discrepancy_count} disc.
-                    </span>
-                  )}
-                  {session.unmatched_rti_count > 0 && (
-                    <span className="text-red-400">
-                      {session.unmatched_rti_count} unmatched
-                    </span>
-                  )}
-                </div>
-                <ArrowRight className="h-4 w-4 text-[#404040]" />
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
