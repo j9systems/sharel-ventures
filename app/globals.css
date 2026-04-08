@@ -17,6 +17,21 @@
   --destructive: #ef4444;
   --success: #22c55e;
   --warning: #eab308;
+
+  --status-matched-bg: rgba(34, 197, 94, 0.15);
+  --status-matched-text: #4ade80;
+  --status-matched-border: rgba(34, 197, 94, 0.2);
+  --status-discrepancy-bg: rgba(234, 179, 8, 0.15);
+  --status-discrepancy-text: #facc15;
+  --status-discrepancy-border: rgba(234, 179, 8, 0.2);
+  --status-rti-only-bg: rgba(239, 68, 68, 0.15);
+  --status-rti-only-text: #f87171;
+  --status-rti-only-border: rgba(239, 68, 68, 0.2);
+  --status-bank-only-bg: rgba(59, 130, 246, 0.15);
+  --status-bank-only-text: #60a5fa;
+  --status-bank-only-border: rgba(59, 130, 246, 0.2);
+  --status-confirm-hover-bg: rgba(34, 197, 94, 0.2);
+  --status-confirm-text: #4ade80;
 }
 
 .light {
@@ -35,6 +50,21 @@
   --destructive: #ef4444;
   --success: #16a34a;
   --warning: #ca8a04;
+
+  --status-matched-bg: #dcfce7;
+  --status-matched-text: #15803d;
+  --status-matched-border: #bbf7d0;
+  --status-discrepancy-bg: #fef9c3;
+  --status-discrepancy-text: #a16207;
+  --status-discrepancy-border: #fde68a;
+  --status-rti-only-bg: #fee2e2;
+  --status-rti-only-text: #b91c1c;
+  --status-rti-only-border: #fecaca;
+  --status-bank-only-bg: #dbeafe;
+  --status-bank-only-text: #1d4ed8;
+  --status-bank-only-border: #bfdbfe;
+  --status-confirm-hover-bg: rgba(22, 163, 74, 0.15);
+  --status-confirm-text: #16a34a;
 }
 
 @theme inline {

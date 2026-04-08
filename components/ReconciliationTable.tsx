@@ -337,7 +337,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {row.match_status === "discrepancy" ? (
-                        <span className="text-yellow-400">
+                        <span style={{ color: "var(--status-discrepancy-text)" }}>
                           {formatDelta(row.delta)}
                         </span>
                       ) : (
@@ -365,7 +365,10 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                               <button
                                 onClick={() => handleReview(row.id)}
                                 disabled={submitting}
-                                className="p-1 rounded hover:bg-green-500/20 text-green-400 transition-colors"
+                                className="p-1 rounded transition-colors"
+                                style={{ color: "var(--status-confirm-text)" }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--status-confirm-hover-bg)"}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                               >
                                 <Check className="h-3.5 w-3.5" />
                               </button>
