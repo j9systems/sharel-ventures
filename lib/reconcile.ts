@@ -146,12 +146,14 @@ export async function runReconciliation(
       continue;
     }
 
-    // c) ±1 day with exact amount
-    const prevDay = addDays(rtiDate, -1);
-    const nextDay = addDays(rtiDate, 1);
+    // c) Exact amount within a date window (bank posts typically lag RTI by 1-5 days)
+    const windowStart = addDays(rtiDate, -1);
+    const windowEnd = addDays(rtiDate, 5);
     const nearIdx = bankPool.findIndex(
       (b) =>
-        (b.post_date === prevDay || b.post_date === nextDay) &&
+        b.post_date >= windowStart &&
+        b.post_date <= windowEnd &&
+        b.post_date !== rtiDate && // already checked exact date above
         b.credit !== null &&
         Math.abs(b.credit - rtiAmount) < 0.005
     );
@@ -173,7 +175,35 @@ export async function runReconciliation(
       continue;
     }
 
-    // d) No match — rti_only
+    // d) Close amount (within $5) within date window
+    const closeWindowIdx = bankPool.findIndex(
+      (b) =>
+        b.post_date >= windowStart &&
+        b.post_date <= windowEnd &&
+        b.post_date !== rtiDate &&
+        b.credit !== null &&
+        Math.abs(b.credit - rtiAmount) <= 5.0
+    );
+
+    if (closeWindowIdx !== -1) {
+      const bank = bankPool.splice(closeWindowIdx, 1)[0];
+      const delta = (bank.credit ?? 0) - rtiAmount;
+      results.push({
+        session_id: sessionId,
+        rti_transaction_id: rti.id,
+        bank_transaction_id: bank.id,
+        match_status: "discrepancy",
+        rti_amount: rtiAmount,
+        bank_amount: bank.credit,
+        delta,
+        reviewed: false,
+      });
+      discrepancyCount++;
+      matched = true;
+      continue;
+    }
+
+    // e) No match — rti_only
     if (!matched) {
       results.push({
         session_id: sessionId,
