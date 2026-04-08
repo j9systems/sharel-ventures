@@ -3,27 +3,27 @@ import type { MatchStatus } from "@/lib/types";
 
 const statusConfig: Record<
   MatchStatus,
-  { label: string; bgClass: string; textClass: string }
+  { label: string; bgVar: string; textVar: string }
 > = {
   matched: {
     label: "Matched",
-    bgClass: "bg-green-500/15",
-    textClass: "text-green-400",
+    bgVar: "var(--status-matched-bg)",
+    textVar: "var(--status-matched-text)",
   },
   discrepancy: {
     label: "Discrepancy",
-    bgClass: "bg-yellow-500/15",
-    textClass: "text-yellow-400",
+    bgVar: "var(--status-discrepancy-bg)",
+    textVar: "var(--status-discrepancy-text)",
   },
   rti_only: {
     label: "Missing in Bank",
-    bgClass: "bg-red-500/15",
-    textClass: "text-red-400",
+    bgVar: "var(--status-rti-only-bg)",
+    textVar: "var(--status-rti-only-text)",
   },
   bank_only: {
     label: "Bank Only",
-    bgClass: "bg-blue-500/15",
-    textClass: "text-blue-400",
+    bgVar: "var(--status-bank-only-bg)",
+    textVar: "var(--status-bank-only-text)",
   },
 };
 
@@ -32,10 +32,9 @@ export function StatusBadge({ status }: { status: MatchStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-        config.bgClass,
-        config.textClass
+        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
       )}
+      style={{ backgroundColor: config.bgVar, color: config.textVar }}
     >
       {config.label}
     </span>

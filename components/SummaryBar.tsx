@@ -17,30 +17,30 @@ export function SummaryBar({
     {
       count: matched,
       label: "Matched",
-      bg: "bg-green-500/15",
-      text: "text-green-400",
-      border: "border-green-500/20",
+      bgVar: "var(--status-matched-bg)",
+      textVar: "var(--status-matched-text)",
+      borderVar: "var(--status-matched-border)",
     },
     {
       count: discrepancies,
       label: "Discrepancies",
-      bg: "bg-yellow-500/15",
-      text: "text-yellow-400",
-      border: "border-yellow-500/20",
+      bgVar: "var(--status-discrepancy-bg)",
+      textVar: "var(--status-discrepancy-text)",
+      borderVar: "var(--status-discrepancy-border)",
     },
     {
       count: unmatchedRti,
       label: "Unmatched",
-      bg: "bg-red-500/15",
-      text: "text-red-400",
-      border: "border-red-500/20",
+      bgVar: "var(--status-rti-only-bg)",
+      textVar: "var(--status-rti-only-text)",
+      borderVar: "var(--status-rti-only-border)",
     },
     {
       count: bankOnly,
       label: "Bank Only",
-      bg: "bg-blue-500/15",
-      text: "text-blue-400",
-      border: "border-blue-500/20",
+      bgVar: "var(--status-bank-only-bg)",
+      textVar: "var(--status-bank-only-text)",
+      borderVar: "var(--status-bank-only-border)",
     },
   ];
 
@@ -49,9 +49,10 @@ export function SummaryBar({
       {pills.map((pill) => (
         <div
           key={pill.label}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${pill.bg} ${pill.border}`}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border"
+          style={{ backgroundColor: pill.bgVar, borderColor: pill.borderVar }}
         >
-          <span className={`text-xl font-bold ${pill.text}`}>{pill.count}</span>
+          <span className="text-xl font-bold" style={{ color: pill.textVar }}>{pill.count}</span>
           <span className="text-sm text-[var(--muted-foreground)]">{pill.label}</span>
         </div>
       ))}
