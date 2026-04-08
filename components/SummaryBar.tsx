@@ -52,7 +52,7 @@ export function SummaryBar({
           className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${pill.bg} ${pill.border}`}
         >
           <span className={`text-xl font-bold ${pill.text}`}>{pill.count}</span>
-          <span className="text-sm text-[#a3a3a3]">{pill.label}</span>
+          <span className="text-sm text-[var(--muted-foreground)]">{pill.label}</span>
         </div>
       ))}
     </div>

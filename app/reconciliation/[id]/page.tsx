@@ -25,10 +25,10 @@ export default async function ReconciliationPage({ params }: PageProps) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="text-center py-20">
-          <p className="text-[#a3a3a3] mb-4">Reconciliation session not found.</p>
+          <p className="text-[var(--muted-foreground)] mb-4">Reconciliation session not found.</p>
           <Link
             href="/"
-            className="text-[#7c3aed] hover:text-[#9b6aed] text-sm"
+            className="text-[var(--primary)] hover:opacity-80 text-sm"
           >
             Back to Home
           </Link>
@@ -56,7 +56,7 @@ export default async function ReconciliationPage({ params }: PageProps) {
       <div className="mb-8">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-[#a3a3a3] hover:text-white transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -65,7 +65,7 @@ export default async function ReconciliationPage({ params }: PageProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">{entityName} Reconciliation</h2>
-            <p className="text-sm text-[#a3a3a3] mt-1">{dateRange}</p>
+            <p className="text-sm text-[var(--muted-foreground)] mt-1">{dateRange}</p>
           </div>
 
           <SummaryBar

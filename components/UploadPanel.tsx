@@ -51,27 +51,27 @@ export function UploadPanel({
 
   if (disabled) {
     return (
-      <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-6">
-        <h3 className="text-sm font-medium text-[#a3a3a3] mb-4">{title}</h3>
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+        <h3 className="text-sm font-medium text-[var(--muted-foreground)] mb-4">{title}</h3>
         <div className="flex flex-col items-center justify-center py-8 text-center">
-          <Upload className="h-8 w-8 text-[#404040] mb-3" />
-          <p className="text-sm text-[#666]">{disabledMessage}</p>
+          <Upload className="h-8 w-8 text-[var(--muted-foreground)] mb-3" />
+          <p className="text-sm text-[var(--muted-foreground)]">{disabledMessage}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-6">
-      <h3 className="text-sm font-medium text-[#a3a3a3] mb-4">{title}</h3>
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <h3 className="text-sm font-medium text-[var(--muted-foreground)] mb-4">{title}</h3>
 
       {selectedFile ? (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a]">
-          <FileText className="h-5 w-5 text-[#7c3aed] shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+          <FileText className="h-5 w-5 text-[var(--primary)] shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{selectedFile.name}</p>
             {preview && (
-              <p className="text-xs text-[#a3a3a3] mt-0.5">{preview}</p>
+              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{preview}</p>
             )}
           </div>
           <button
@@ -79,7 +79,7 @@ export function UploadPanel({
               onFileClear();
               if (inputRef.current) inputRef.current.value = "";
             }}
-            className="p-1 rounded hover:bg-[#2a2a2a] text-[#a3a3a3] hover:text-white transition-colors"
+            className="p-1 rounded hover:bg-[var(--muted)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -96,16 +96,16 @@ export function UploadPanel({
           className={cn(
             "flex flex-col items-center justify-center py-8 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
             isDragOver
-              ? "border-[#7c3aed] bg-[#7c3aed]/5"
-              : "border-[#2a2a2a] hover:border-[#404040] hover:bg-[#1a1a1a]/50"
+              ? "border-[var(--primary)] bg-[var(--primary)]/5"
+              : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--card)]/50"
           )}
         >
-          <Upload className="h-8 w-8 text-[#404040] mb-3" />
-          <p className="text-sm text-[#a3a3a3]">
+          <Upload className="h-8 w-8 text-[var(--muted-foreground)] mb-3" />
+          <p className="text-sm text-[var(--muted-foreground)]">
             Drop file here or{" "}
-            <span className="text-[#7c3aed] font-medium">browse</span>
+            <span className="text-[var(--primary)] font-medium">browse</span>
           </p>
-          <p className="text-xs text-[#666] mt-1">{description}</p>
+          <p className="text-xs text-[var(--muted-foreground)] mt-1">{description}</p>
         </div>
       )}
 
