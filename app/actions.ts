@@ -135,6 +135,7 @@ export async function uploadAndReconcile(formData: FormData): Promise<UploadResu
     }
 
     // Insert RTI transactions in batches
+    // Note: is_deposit is a generated column (type_code = 19), do not include it
     const rtiTransactions = rtiResult.rows.map((row) => ({
       upload_id: rtiUpload.id,
       store_number: row.store_number,
@@ -142,7 +143,6 @@ export async function uploadAndReconcile(formData: FormData): Promise<UploadResu
       raw_label: row.raw_label,
       transaction_type: row.transaction_type,
       type_code: row.type_code,
-      is_deposit: row.is_deposit,
       amount: row.amount,
     }));
 
