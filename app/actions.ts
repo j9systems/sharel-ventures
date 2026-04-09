@@ -92,13 +92,35 @@ export async function uploadAndReconcile(formData: FormData): Promise<UploadResu
       .eq("entity_id", entityId)
       .eq("date_from", rtiResult.dateFrom)
       .eq("date_to", rtiResult.dateTo)
-      .limit(1);
+      .limit(10);
 
     if (existingRti && existingRti.length > 0) {
-      return {
-        success: false,
-        error: `An RTI upload already exists for ${rtiResult.dateFrom} to ${rtiResult.dateTo} (file: ${existingRti[0].file_name}). Delete it first or use a different date range.`,
-      };
+      // Check which of these uploads are actually linked to a reconciliation session
+      const existingIds = existingRti.map((r: { id: string }) => r.id);
+      const { data: linkedSessions } = await supabase
+        .from("reconciliation_sessions")
+        .select("rti_upload_id")
+        .in("rti_upload_id", existingIds);
+
+      const linkedUploadIds = new Set(
+        (linkedSessions ?? []).map((s: { rti_upload_id: string }) => s.rti_upload_id)
+      );
+      const orphanedUploads = existingRti.filter((r: { id: string }) => !linkedUploadIds.has(r.id));
+      const linkedUploads = existingRti.filter((r: { id: string }) => linkedUploadIds.has(r.id));
+
+      // Clean up orphaned RTI uploads (from previously failed reconciliations)
+      for (const orphan of orphanedUploads) {
+        await supabase.from("rti_transactions").delete().eq("upload_id", orphan.id);
+        await supabase.from("rti_uploads").delete().eq("id", orphan.id);
+      }
+
+      // Only block if there's still a linked (non-orphaned) upload
+      if (linkedUploads.length > 0) {
+        return {
+          success: false,
+          error: `An RTI upload already exists for ${rtiResult.dateFrom} to ${rtiResult.dateTo} (file: ${linkedUploads[0].file_name}). Delete it first or use a different date range.`,
+        };
+      }
     }
 
     // Parse all bank files
