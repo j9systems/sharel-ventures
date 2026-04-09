@@ -10,6 +10,7 @@ interface RollupViewProps {
   }[];
   year: number;
   onSelectStore: (storeId: string) => void;
+  onUploadClick?: () => void;
 }
 
 function latestMetrics(
@@ -43,7 +44,7 @@ function fmtSec(val: number | null): string {
   return `${Math.round(val)} sec`;
 }
 
-export function RollupView({ data, year, onSelectStore }: RollupViewProps) {
+export function RollupView({ data, year, onSelectStore, onUploadClick }: RollupViewProps) {
   if (data.length === 0) {
     return (
       <div className="text-center text-[var(--muted-foreground)] py-12">
@@ -121,6 +122,27 @@ export function RollupView({ data, year, onSelectStore }: RollupViewProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Empty-state banner when no stores have completed months */}
+      {onUploadClick &&
+        data.every(
+          (d) => d.months.filter((m) => m.status === "complete").length === 0
+        ) && (
+          <div className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--card)] px-6 py-8 text-center">
+            <p className="text-sm text-[var(--muted-foreground)] mb-1">
+              No report card data for {year} yet.
+            </p>
+            <p className="text-sm text-[var(--muted-foreground)] mb-4">
+              Upload monthly files to populate this view.
+            </p>
+            <button
+              onClick={onUploadClick}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+            >
+              Upload Reports &rarr;
+            </button>
+          </div>
+        )}
     </div>
   );
 }
