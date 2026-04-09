@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Entity, Store } from "@/lib/types";
-import type { ReportCardMonth, ReportCardUpload, ReportCardMetrics, PartialMetrics } from "@/lib/report-card/types";
+import type { ReportCardMonth, ReportCardUpload, ReportCardMetrics, PartialMetrics, UploadType, UploadStatus } from "@/lib/report-card/types";
 import { MONTH_NAMES_SHORT, UPLOAD_TYPES } from "@/lib/report-card/constants";
 import {
   getEntities,
@@ -12,11 +12,13 @@ import {
   getReportCardMetrics,
   getPriorYearMetrics,
   getRollupData,
+  getBatchUploadStatuses,
 } from "./actions";
 import { UploadCard } from "./UploadCard";
 import { ScorecardView } from "./ScorecardView";
 import { RollupView } from "./RollupView";
 import { PriorYearModal } from "./PriorYearModal";
+import { BatchUploadPanel } from "./BatchUploadPanel";
 
 export default function ReportCardsPage() {
   const currentYear = new Date().getFullYear();
@@ -35,6 +37,12 @@ export default function ReportCardsPage() {
   const [priorYear, setPriorYear] = useState<PartialMetrics | null>(null);
   const [showPriorYearModal, setShowPriorYearModal] = useState(false);
 
+  // Batch upload (entity-level)
+  const [selectedBatchMonth, setSelectedBatchMonth] = useState<number | null>(null);
+  const [batchUploadStatuses, setBatchUploadStatuses] = useState<
+    Record<UploadType, Record<string, UploadStatus>>
+  >({} as Record<UploadType, Record<string, UploadStatus>>);
+
   // Rollup
   const [rollupData, setRollupData] = useState<
     { store: Store; months: (ReportCardMonth & { metrics: ReportCardMetrics | null })[] }[]
@@ -51,6 +59,7 @@ export default function ReportCardsPage() {
       setStores(s);
       setSelectedStoreId("");
       setSelectedMonth(null);
+      setSelectedBatchMonth(null);
     });
   }, [selectedEntityId]);
 
@@ -109,9 +118,24 @@ export default function ReportCardsPage() {
     }
   }, [selectedStoreId, selectedYear, selectedEntityId]);
 
+  // Load batch upload statuses when entity + batch month selected
+  const loadBatchStatuses = useCallback(async () => {
+    if (!selectedEntityId || !selectedBatchMonth || selectedStoreId) {
+      setBatchUploadStatuses({} as Record<UploadType, Record<string, UploadStatus>>);
+      return;
+    }
+    const data = await getBatchUploadStatuses(selectedEntityId, selectedYear, selectedBatchMonth);
+    setBatchUploadStatuses(data);
+  }, [selectedEntityId, selectedYear, selectedBatchMonth, selectedStoreId]);
+
+  useEffect(() => {
+    loadBatchStatuses();
+  }, [loadBatchStatuses]);
+
   const handleUploadComplete = async () => {
     await loadMonths();
     await loadMonthDetail();
+    await loadBatchStatuses();
   };
 
   const selectedStore = stores.find((s) => s.id === selectedStoreId);
@@ -171,6 +195,7 @@ export default function ReportCardsPage() {
             onChange={(e) => {
               setSelectedStoreId(e.target.value);
               setSelectedMonth(null);
+              setSelectedBatchMonth(null);
             }}
             className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm min-w-[200px]"
           >
@@ -184,16 +209,67 @@ export default function ReportCardsPage() {
         </div>
       </div>
 
-      {/* No store selected — show rollup */}
-      {!selectedStoreId && (
-        <RollupView
-          data={rollupData}
-          year={selectedYear}
-          onSelectStore={(storeId) => {
-            setSelectedStoreId(storeId);
-            setSelectedMonth(null);
-          }}
-        />
+      {/* No store selected — show rollup + batch upload */}
+      {!selectedStoreId && !selectedBatchMonth && (
+        <>
+          <RollupView
+            data={rollupData}
+            year={selectedYear}
+            onSelectStore={(storeId) => {
+              setSelectedStoreId(storeId);
+              setSelectedMonth(null);
+            }}
+          />
+          {selectedEntityId && (
+            <div className="mt-6">
+              <h2 className="text-lg font-semibold mb-4">
+                Batch Upload — {selectedYear}
+              </h2>
+              <p className="text-sm text-[var(--muted-foreground)] mb-4">
+                Select a month to upload files for all stores at once.
+              </p>
+              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-3">
+                {MONTH_NAMES_SHORT.map((name, idx) => {
+                  const m = idx + 1;
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => setSelectedBatchMonth(m)}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-center transition-colors cursor-pointer hover:border-[var(--primary)]"
+                    >
+                      <div className="text-sm font-medium">{name}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Batch month selected — show batch upload panel */}
+      {!selectedStoreId && selectedBatchMonth && selectedEntityId && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => setSelectedBatchMonth(null)}
+              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm transition-colors"
+            >
+              &larr; Back
+            </button>
+            <h2 className="text-lg font-semibold">
+              Batch Upload — {MONTH_NAMES_SHORT[selectedBatchMonth - 1]} {selectedYear}
+            </h2>
+          </div>
+          <BatchUploadPanel
+            entityId={selectedEntityId}
+            year={selectedYear}
+            month={selectedBatchMonth}
+            stores={stores}
+            uploadStatuses={batchUploadStatuses}
+            onUploadComplete={handleUploadComplete}
+          />
+        </div>
       )}
 
       {/* Store selected — show month grid */}
