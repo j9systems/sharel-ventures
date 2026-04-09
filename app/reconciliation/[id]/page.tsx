@@ -70,7 +70,7 @@ export default async function ReconciliationPage({ params }: PageProps) {
       <div className="mb-8">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors mb-4 cursor-pointer"
         >
           <ArrowLeft className="h-4 w-4" />
           Back

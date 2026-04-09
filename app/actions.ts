@@ -287,7 +287,7 @@ export async function getReconciliationResults(sessionId: string) {
     .select(
       `*,
        rti_transactions(store_number, transaction_date, transaction_type, amount, raw_label),
-       bank_transactions(post_date, description, credit, debit)`
+       bank_transactions(post_date, description, credit, debit, bank_uploads(account_number))`
     )
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true });
