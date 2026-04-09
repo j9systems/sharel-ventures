@@ -4,12 +4,14 @@ interface RTIDeposit {
   id: string;
   transaction_date: string;
   amount: number;
+  store_number: string | null;
 }
 
 interface BankDeposit {
   id: string;
   post_date: string;
   credit: number | null;
+  store_number: string | null;
 }
 
 interface ResultInsert {
@@ -37,7 +39,7 @@ export async function runReconciliation(
   // Step 1: Pull RTI deposits
   const { data: rtiRows, error: rtiErr } = await supabase
     .from("rti_transactions")
-    .select("id, transaction_date, amount")
+    .select("id, transaction_date, amount, store_number")
     .eq("upload_id", rtiUploadId)
     .eq("is_deposit", true)
     .order("transaction_date", { ascending: true });
@@ -52,7 +54,7 @@ export async function runReconciliation(
   for (const bankUploadId of bankUploadIds) {
     const { data: bankRows, error: bankErr } = await supabase
       .from("bank_transactions")
-      .select("id, post_date, credit")
+      .select("id, post_date, credit, store_number")
       .eq("upload_id", bankUploadId)
       .eq("transaction_category", "physical_deposit")
       .order("post_date", { ascending: true });
@@ -106,118 +108,101 @@ export async function runReconciliation(
   let discrepancyCount = 0;
   let unmatchedRtiCount = 0;
 
-  for (const rti of rtiDeposits) {
-    const rtiAmount = rti.amount;
+  // Score-based matching: find the best bank candidate for each RTI record,
+  // considering store number, amount closeness, and date proximity.
+  function scoreCandidate(rti: RTIDeposit, bank: BankDeposit): number {
+    if (bank.credit === null) return -1;
+
     const rtiDate = rti.transaction_date;
-    let matched = false;
-
-    // a) Exact amount + exact date
-    const exactIdx = bankPool.findIndex(
-      (b) => b.post_date === rtiDate && b.credit !== null && Math.abs(b.credit - rtiAmount) < 0.005
-    );
-
-    if (exactIdx !== -1) {
-      const bank = bankPool.splice(exactIdx, 1)[0];
-      results.push({
-        session_id: sessionId,
-        rti_transaction_id: rti.id,
-        bank_transaction_id: bank.id,
-        match_status: "matched",
-        rti_amount: rtiAmount,
-        bank_amount: bank.credit,
-        delta: null,
-        reviewed: false,
-      });
-      matchedCount++;
-      matched = true;
-      continue;
-    }
-
-    // b) Same date, amount within $5.00
-    const closeIdx = bankPool.findIndex(
-      (b) =>
-        b.post_date === rtiDate &&
-        b.credit !== null &&
-        Math.abs(b.credit - rtiAmount) <= 5.0
-    );
-
-    if (closeIdx !== -1) {
-      const bank = bankPool.splice(closeIdx, 1)[0];
-      const delta = (bank.credit ?? 0) - rtiAmount;
-      results.push({
-        session_id: sessionId,
-        rti_transaction_id: rti.id,
-        bank_transaction_id: bank.id,
-        match_status: "discrepancy",
-        rti_amount: rtiAmount,
-        bank_amount: bank.credit,
-        delta,
-        reviewed: false,
-      });
-      discrepancyCount++;
-      matched = true;
-      continue;
-    }
-
-    // c) Exact amount within a date window (bank posts typically lag RTI by 1-7 days)
+    const amountDiff = Math.abs(bank.credit - rti.amount);
     const windowStart = addDays(rtiDate, -1);
     const windowEnd = addDays(rtiDate, 7);
-    const nearIdx = bankPool.findIndex(
-      (b) =>
-        b.post_date >= windowStart &&
-        b.post_date <= windowEnd &&
-        b.post_date !== rtiDate && // already checked exact date above
-        b.credit !== null &&
-        Math.abs(b.credit - rtiAmount) < 0.005
-    );
 
-    if (nearIdx !== -1) {
-      const bank = bankPool.splice(nearIdx, 1)[0];
-      results.push({
-        session_id: sessionId,
-        rti_transaction_id: rti.id,
-        bank_transaction_id: bank.id,
-        match_status: "matched",
-        rti_amount: rtiAmount,
-        bank_amount: bank.credit,
-        delta: null,
-        reviewed: false,
-      });
-      matchedCount++;
-      matched = true;
-      continue;
+    // Must be within date window
+    if (bank.post_date < windowStart || bank.post_date > windowEnd) return -1;
+    // Must be within $5 tolerance
+    if (amountDiff > 5.0) return -1;
+
+    let score = 0;
+
+    // Store number match is the strongest signal (+1000)
+    if (
+      rti.store_number &&
+      bank.store_number &&
+      rti.store_number === bank.store_number
+    ) {
+      score += 1000;
     }
 
-    // d) Close amount (within $5) within date window
-    const closeWindowIdx = bankPool.findIndex(
-      (b) =>
-        b.post_date >= windowStart &&
-        b.post_date <= windowEnd &&
-        b.post_date !== rtiDate &&
-        b.credit !== null &&
-        Math.abs(b.credit - rtiAmount) <= 5.0
-    );
-
-    if (closeWindowIdx !== -1) {
-      const bank = bankPool.splice(closeWindowIdx, 1)[0];
-      const delta = (bank.credit ?? 0) - rtiAmount;
-      results.push({
-        session_id: sessionId,
-        rti_transaction_id: rti.id,
-        bank_transaction_id: bank.id,
-        match_status: "discrepancy",
-        rti_amount: rtiAmount,
-        bank_amount: bank.credit,
-        delta,
-        reviewed: false,
-      });
-      discrepancyCount++;
-      matched = true;
-      continue;
+    // Exact amount match (+500)
+    if (amountDiff < 0.005) {
+      score += 500;
+    } else {
+      // Closer amounts score higher (0-499 range)
+      score += Math.max(0, Math.round(499 * (1 - amountDiff / 5.0)));
     }
 
-    // e) No match — rti_only
-    if (!matched) {
+    // Exact date match (+100), otherwise closer dates score higher
+    if (bank.post_date === rtiDate) {
+      score += 100;
+    } else {
+      const daysDiff = Math.abs(
+        (new Date(bank.post_date).getTime() - new Date(rtiDate).getTime()) /
+          86400000
+      );
+      score += Math.max(0, Math.round(99 * (1 - daysDiff / 8)));
+    }
+
+    return score;
+  }
+
+  for (const rti of rtiDeposits) {
+    const rtiAmount = rti.amount;
+
+    // Find the best candidate from the bank pool by score
+    let bestIdx = -1;
+    let bestScore = -1;
+    for (let i = 0; i < bankPool.length; i++) {
+      const s = scoreCandidate(rti, bankPool[i]);
+      if (s > bestScore) {
+        bestScore = s;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx !== -1) {
+      const bank = bankPool.splice(bestIdx, 1)[0];
+      const amountDiff = Math.abs((bank.credit ?? 0) - rtiAmount);
+      const isExact = amountDiff < 0.005;
+
+      if (isExact) {
+        results.push({
+          session_id: sessionId,
+          rti_transaction_id: rti.id,
+          bank_transaction_id: bank.id,
+          match_status: "matched",
+          rti_amount: rtiAmount,
+          bank_amount: bank.credit,
+          delta: null,
+          reviewed: false,
+        });
+        matchedCount++;
+      } else {
+        const delta = (bank.credit ?? 0) - rtiAmount;
+        results.push({
+          session_id: sessionId,
+          rti_transaction_id: rti.id,
+          bank_transaction_id: bank.id,
+          match_status: "discrepancy",
+          rti_amount: rtiAmount,
+          bank_amount: bank.credit,
+          delta,
+          reviewed: false,
+        });
+        discrepancyCount++;
+      }
+    } else {
+      // No match — rti_only
       results.push({
         session_id: sessionId,
         rti_transaction_id: rti.id,
