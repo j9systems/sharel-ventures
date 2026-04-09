@@ -108,8 +108,9 @@ export async function runReconciliation(
   let discrepancyCount = 0;
   let unmatchedRtiCount = 0;
 
-  // Score-based matching: find the best bank candidate for each RTI record,
-  // considering store number, amount closeness, and date proximity.
+  // Score-based matching: evaluate ALL RTI-bank candidate pairs globally,
+  // then assign from highest score to lowest. This prevents a lower-scoring
+  // pair from consuming a bank record that a higher-scoring pair needs.
   function scoreCandidate(rti: RTIDeposit, bank: BankDeposit): number {
     if (bank.credit === null) return -1;
 
@@ -156,69 +157,85 @@ export async function runReconciliation(
     return score;
   }
 
-  for (const rti of rtiDeposits) {
-    const rtiAmount = rti.amount;
-
-    // Find the best candidate from the bank pool by score
-    let bestIdx = -1;
-    let bestScore = -1;
-    for (let i = 0; i < bankPool.length; i++) {
-      const s = scoreCandidate(rti, bankPool[i]);
-      if (s > bestScore) {
-        bestScore = s;
-        bestIdx = i;
+  // Build all candidate pairs and score them
+  const candidatePairs: { rtiIdx: number; bankIdx: number; score: number }[] = [];
+  for (let r = 0; r < rtiDeposits.length; r++) {
+    for (let b = 0; b < bankPool.length; b++) {
+      const score = scoreCandidate(rtiDeposits[r], bankPool[b]);
+      if (score >= 0) {
+        candidatePairs.push({ rtiIdx: r, bankIdx: b, score });
       }
-    }
-
-    if (bestIdx !== -1) {
-      const bank = bankPool.splice(bestIdx, 1)[0];
-      const amountDiff = Math.abs((bank.credit ?? 0) - rtiAmount);
-      const isExact = amountDiff < 0.005;
-
-      if (isExact) {
-        results.push({
-          session_id: sessionId,
-          rti_transaction_id: rti.id,
-          bank_transaction_id: bank.id,
-          match_status: "matched",
-          rti_amount: rtiAmount,
-          bank_amount: bank.credit,
-          delta: null,
-          reviewed: false,
-        });
-        matchedCount++;
-      } else {
-        const delta = (bank.credit ?? 0) - rtiAmount;
-        results.push({
-          session_id: sessionId,
-          rti_transaction_id: rti.id,
-          bank_transaction_id: bank.id,
-          match_status: "discrepancy",
-          rti_amount: rtiAmount,
-          bank_amount: bank.credit,
-          delta,
-          reviewed: false,
-        });
-        discrepancyCount++;
-      }
-    } else {
-      // No match — rti_only
-      results.push({
-        session_id: sessionId,
-        rti_transaction_id: rti.id,
-        bank_transaction_id: null,
-        match_status: "rti_only",
-        rti_amount: rtiAmount,
-        bank_amount: null,
-        delta: null,
-        reviewed: false,
-      });
-      unmatchedRtiCount++;
     }
   }
 
-  // Remaining bank rows → bank_only
-  for (const bank of bankPool) {
+  // Sort by score descending — highest-quality matches assigned first
+  candidatePairs.sort((a, b) => b.score - a.score);
+
+  // Greedily assign: highest score wins, skip already-assigned records
+  const assignedRti = new Set<number>();
+  const assignedBank = new Set<number>();
+
+  for (const pair of candidatePairs) {
+    if (assignedRti.has(pair.rtiIdx) || assignedBank.has(pair.bankIdx)) continue;
+
+    assignedRti.add(pair.rtiIdx);
+    assignedBank.add(pair.bankIdx);
+
+    const rti = rtiDeposits[pair.rtiIdx];
+    const bank = bankPool[pair.bankIdx];
+    const rtiAmount = rti.amount;
+    const amountDiff = Math.abs((bank.credit ?? 0) - rtiAmount);
+    const isExact = amountDiff < 0.005;
+
+    if (isExact) {
+      results.push({
+        session_id: sessionId,
+        rti_transaction_id: rti.id,
+        bank_transaction_id: bank.id,
+        match_status: "matched",
+        rti_amount: rtiAmount,
+        bank_amount: bank.credit,
+        delta: null,
+        reviewed: false,
+      });
+      matchedCount++;
+    } else {
+      const delta = (bank.credit ?? 0) - rtiAmount;
+      results.push({
+        session_id: sessionId,
+        rti_transaction_id: rti.id,
+        bank_transaction_id: bank.id,
+        match_status: "discrepancy",
+        rti_amount: rtiAmount,
+        bank_amount: bank.credit,
+        delta,
+        reviewed: false,
+      });
+      discrepancyCount++;
+    }
+  }
+
+  // Unmatched RTI records → rti_only
+  for (let r = 0; r < rtiDeposits.length; r++) {
+    if (assignedRti.has(r)) continue;
+    const rti = rtiDeposits[r];
+    results.push({
+      session_id: sessionId,
+      rti_transaction_id: rti.id,
+      bank_transaction_id: null,
+      match_status: "rti_only",
+      rti_amount: rti.amount,
+      bank_amount: null,
+      delta: null,
+      reviewed: false,
+    });
+    unmatchedRtiCount++;
+  }
+
+  // Unmatched bank rows → bank_only
+  for (let b = 0; b < bankPool.length; b++) {
+    if (assignedBank.has(b)) continue;
+    const bank = bankPool[b];
     results.push({
       session_id: sessionId,
       rti_transaction_id: null,
@@ -230,7 +247,7 @@ export async function runReconciliation(
       reviewed: false,
     });
   }
-  const unmatchedBankCount = bankPool.length;
+  const unmatchedBankCount = bankPool.length - assignedBank.size;
 
   // Insert results in batches of 500
   for (let i = 0; i < results.length; i += 500) {
