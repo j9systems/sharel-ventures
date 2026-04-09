@@ -26,6 +26,9 @@ interface ResultRow {
     description: string;
     credit: number | null;
     debit: number | null;
+    bank_uploads: {
+      account_number: string;
+    } | null;
   } | null;
 }
 
@@ -43,6 +46,25 @@ type SortField =
   | "delta"
   | "status";
 type SortDir = "asc" | "desc";
+
+const BANK_ACCOUNT_COLORS = [
+  "#8b5cf6", // violet
+  "#0ea5e9", // sky blue
+  "#f59e0b", // amber
+  "#10b981", // emerald
+  "#ec4899", // pink
+  "#06b6d4", // cyan
+  "#f97316", // orange
+  "#6366f1", // indigo
+];
+
+function getBankAccountColor(accountNumber: string): string {
+  let hash = 0;
+  for (let i = 0; i < accountNumber.length; i++) {
+    hash = (hash * 31 + accountNumber.charCodeAt(i)) | 0;
+  }
+  return BANK_ACCOUNT_COLORS[Math.abs(hash) % BANK_ACCOUNT_COLORS.length];
+}
 
 const statusOrder: Record<MatchStatus, number> = {
   discrepancy: 0,
@@ -195,6 +217,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
       "Store",
       "RTI Date",
       "Bank Date",
+      "Bank Description",
       "Deposit Type",
       "RTI Amount",
       "Bank Amount",
@@ -209,6 +232,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
         r.rti_transactions?.store_number ?? "Unknown",
         r.rti_transactions?.transaction_date ?? "",
         r.bank_transactions?.post_date ?? "",
+        r.bank_transactions?.description ?? "",
         r.rti_transactions?.transaction_type ?? "",
         r.rti_amount?.toFixed(2) ?? "",
         r.bank_amount?.toFixed(2) ?? "",
@@ -237,7 +261,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
   }) => (
     <button
       onClick={() => toggleSort(field)}
-      className="flex items-center gap-1 hover:text-[var(--foreground)] transition-colors"
+      className="flex items-center gap-1 hover:text-[var(--foreground)] transition-colors cursor-pointer"
     >
       {children}
       <ArrowUpDown className="h-3 w-3" />
@@ -251,7 +275,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as MatchStatus | "all")}
-          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)] cursor-pointer"
         >
           <option value="all">All Statuses</option>
           <option value="matched">Matched</option>
@@ -263,7 +287,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
         <select
           value={storeFilter}
           onChange={(e) => setStoreFilter(e.target.value)}
-          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)] cursor-pointer"
         >
           <option value="">All Stores</option>
           {stores.map((s) => (
@@ -291,7 +315,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
 
         <button
           onClick={exportCSV}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--muted-foreground)] transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--muted-foreground)] transition-colors cursor-pointer"
         >
           <Download className="h-4 w-4" />
           Export CSV
@@ -313,6 +337,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
                 <th className="px-4 py-3 font-medium">
                   <SortButton field="bank_date">Bank Date</SortButton>
                 </th>
+                <th className="px-4 py-3 font-medium">Bank Desc</th>
                 <th className="px-4 py-3 font-medium">Deposit #</th>
                 <th className="px-4 py-3 font-medium text-right">
                   <SortButton field="rti_amount">RTI Amount</SortButton>
@@ -356,10 +381,17 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
                     </td>
                     <td className="px-4 py-3 text-[var(--muted-foreground)]">
                       {bankDate}
+                    </td>
+                    <td className="px-4 py-3">
                       {row.bank_transactions?.description && (
                         <div
-                          className="text-xs text-[var(--muted-foreground)] truncate max-w-[180px]"
+                          className="text-xs truncate max-w-[200px]"
                           title={row.bank_transactions.description}
+                          style={{
+                            color: row.bank_transactions.bank_uploads?.account_number
+                              ? getBankAccountColor(row.bank_transactions.bank_uploads.account_number)
+                              : "var(--muted-foreground)",
+                          }}
                         >
                           {row.bank_transactions.description}
                         </div>
@@ -410,7 +442,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
                               <button
                                 onClick={() => handleReview(row.id)}
                                 disabled={submitting}
-                                className="p-1 rounded transition-colors"
+                                className="p-1 rounded transition-colors cursor-pointer"
                                 style={{ color: "var(--status-confirm-text)" }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--status-confirm-hover-bg)"}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
@@ -422,7 +454,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
                                   setReviewingId(null);
                                   setReviewNote("");
                                 }}
-                                className="p-1 rounded hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors"
+                                className="p-1 rounded hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors cursor-pointer"
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
@@ -430,7 +462,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
                           ) : (
                             <button
                               onClick={() => setReviewingId(row.id)}
-                              className="text-xs text-[var(--primary)] hover:opacity-80 transition-colors"
+                              className="text-xs text-[var(--primary)] hover:opacity-80 transition-colors cursor-pointer"
                             >
                               Mark Resolved
                             </button>
@@ -458,7 +490,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
               {sorted.length === 0 && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-12 text-center text-[var(--muted-foreground)]"
                   >
                     No results match your filters
