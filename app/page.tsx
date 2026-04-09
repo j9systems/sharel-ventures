@@ -4,18 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { UploadPanel } from "@/components/UploadPanel";
 import {
-  getEntities,
   getRecentSessions,
-  uploadAndReconcile,
-  checkEntityBankParser,
+  uploadAndReconcileAuto,
   deleteReconciliationSession,
 } from "./actions";
 import { FileText, ArrowRight, Loader2, Trash2 } from "lucide-react";
-
-interface Entity {
-  id: string;
-  name: string;
-}
 
 type UploadInfo = { file_name: string; date_from: string; date_to: string };
 type BankUploadInfo = { file_name: string };
@@ -51,101 +44,69 @@ function getBankFileNames(session: RecentSession): string[] {
 
 export default function HomePage() {
   const router = useRouter();
-  const [entities, setEntities] = useState<Entity[]>([]);
-  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
-  const [bankParserAvailable, setBankParserAvailable] = useState(true);
-  const [rtiFile, setRtiFile] = useState<File | null>(null);
+  const [rtiFiles, setRtiFiles] = useState<File[]>([]);
   const [bankFiles, setBankFiles] = useState<File[]>([]);
-  const [rtiPreview, setRtiPreview] = useState("");
-  const [bankPreviews, setBankPreviews] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState("");
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
 
   useEffect(() => {
-    getEntities()
-      .then((data) => setEntities(data ?? []))
-      .catch(() => {});
     getRecentSessions()
       .then((data) => setRecentSessions((data as RecentSession[]) ?? []))
       .catch(() => {});
   }, []);
 
-  const handleEntityChange = useCallback(
-    async (entityId: string) => {
-      const entity = entities.find((e) => e.id === entityId) ?? null;
-      setSelectedEntity(entity);
-      setBankFiles([]);
-      setBankPreviews([]);
-      setError("");
-
-      if (entity) {
-        const available = await checkEntityBankParser(entity.name);
-        setBankParserAvailable(available);
-      }
-    },
-    [entities]
-  );
-
-  const handleRtiSelect = useCallback(async (file: File) => {
-    setRtiFile(file);
+  const handleRtiFilesAdd = useCallback((files: File[]) => {
     setError("");
-    const text = await file.text();
-    const lines = text.split("\n").filter((l) => l.trim()).length;
-    setRtiPreview(`${lines} rows detected`);
+    setRtiFiles((prev) => {
+      const existingNames = new Set(prev.map((f) => f.name));
+      const newFiles = files.filter((f) => !existingNames.has(f.name));
+      return [...prev, ...newFiles];
+    });
   }, []);
 
-  const handleBankFilesAdd = useCallback(async (files: File[]) => {
+  const handleRtiFileRemove = useCallback((index: number) => {
+    setRtiFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleRtiFilesClear = useCallback(() => {
+    setRtiFiles([]);
+  }, []);
+
+  const handleBankFilesAdd = useCallback((files: File[]) => {
     setError("");
-    const newPreviews: string[] = [];
-    for (const file of files) {
-      const ext = file.name.toLowerCase().split(".").pop();
-      if (ext === "csv") {
-        const text = await file.text();
-        const lines = text.split("\n").filter((l) => l.trim()).length;
-        newPreviews.push(`${lines - 1} data rows (CSV)`);
-      } else {
-        newPreviews.push(`Excel file`);
-      }
-    }
-    setBankFiles((prev) => [...prev, ...files]);
-    setBankPreviews((prev) => [...prev, ...newPreviews]);
+    setBankFiles((prev) => {
+      const existingNames = new Set(prev.map((f) => f.name));
+      const newFiles = files.filter((f) => !existingNames.has(f.name));
+      return [...prev, ...newFiles];
+    });
   }, []);
 
   const handleBankFileRemove = useCallback((index: number) => {
     setBankFiles((prev) => prev.filter((_, i) => i !== index));
-    setBankPreviews((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const handleBankFilesClear = useCallback(() => {
     setBankFiles([]);
-    setBankPreviews([]);
   }, []);
 
   const handleReconcile = async () => {
-    if (!selectedEntity || !rtiFile || bankFiles.length === 0) return;
+    if (rtiFiles.length === 0 || bankFiles.length === 0) return;
     setProcessing(true);
     setError("");
 
     try {
-      setStatusMessage("Parsing RTI export...");
-      await new Promise((r) => setTimeout(r, 200));
-
-      setStatusMessage(`Parsing ${bankFiles.length} bank statement${bankFiles.length > 1 ? "s" : ""}...`);
+      setStatusMessage("Parsing and detecting entities...");
       await new Promise((r) => setTimeout(r, 200));
 
       setStatusMessage("Running reconciliation...");
 
       const formData = new FormData();
-      formData.set("entityId", selectedEntity.id);
-      formData.set("entityName", selectedEntity.name);
-      formData.set("rtiFile", rtiFile);
-      for (const file of bankFiles) {
-        formData.append("bankFiles", file);
-      }
+      rtiFiles.forEach((f) => formData.append("rtiFiles", f));
+      bankFiles.forEach((f) => formData.append("bankFiles", f));
 
-      const result = await uploadAndReconcile(formData);
+      const result = await uploadAndReconcileAuto(formData);
 
       if (!result.success) {
         setError(result.error);
@@ -155,7 +116,12 @@ export default function HomePage() {
       }
 
       setStatusMessage("Complete! Redirecting...");
-      router.push(`/reconciliation/${result.sessionId}`);
+      if (result.sessions.length === 1) {
+        router.push(`/reconciliation/${result.sessions[0].sessionId}`);
+      } else {
+        const ids = result.sessions.map((s) => s.sessionId).join(",");
+        router.push(`/reconciliation/multi?sessions=${ids}`);
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "An unexpected error occurred";
@@ -165,64 +131,43 @@ export default function HomePage() {
     }
   };
 
-  const canReconcile =
-    selectedEntity && rtiFile && bankFiles.length > 0 && bankParserAvailable && !processing;
+  const canReconcile = rtiFiles.length > 0 && bankFiles.length > 0 && !processing;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
-      {/* Entity selector */}
-      <div className="mb-8">
-        <label className="block text-sm font-medium text-[var(--muted-foreground)] mb-2">
-          Select Entity
-        </label>
-        <select
-          value={selectedEntity?.id ?? ""}
-          onChange={(e) => handleEntityChange(e.target.value)}
-          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--foreground)] w-full max-w-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-        >
-          <option value="">Choose entity...</option>
-          {entities.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {/* Upload panels */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
+      <div className="grid md:grid-cols-2 gap-6 mb-4">
         <UploadPanel
           title="RTI Deposit Export"
           accept=".csv"
-          description="CSV file from RTI system"
-          disabled={!selectedEntity}
-          disabledMessage="Select an entity first"
-          onFileSelect={handleRtiSelect}
-          onFileClear={() => {
-            setRtiFile(null);
-            setRtiPreview("");
-          }}
-          selectedFile={rtiFile}
-          preview={rtiPreview}
+          description="One or more RTI CSV exports — entity is detected automatically"
+          multiple
+          onFilesAdd={handleRtiFilesAdd}
+          onFileRemove={handleRtiFileRemove}
+          onFilesClear={handleRtiFilesClear}
+          selectedFiles={rtiFiles}
+          previews={rtiFiles.map((f) => f.name)}
         />
         <UploadPanel
           title="Bank Statements"
           accept=".xls,.xlsx,.csv"
-          description="XLS, XLSX, or CSV bank exports (multiple files supported)"
-          disabled={!selectedEntity || !bankParserAvailable}
-          disabledMessage={
-            !selectedEntity
-              ? "Select an entity first"
-              : `${selectedEntity.name} bank parser coming soon`
-          }
+          description="CNB or Five Star XLS/CSV files — entity is detected automatically"
           multiple
           onFilesAdd={handleBankFilesAdd}
           onFileRemove={handleBankFileRemove}
           onFilesClear={handleBankFilesClear}
           selectedFiles={bankFiles}
-          previews={bankPreviews}
+          previews={bankFiles.map((f) => f.name)}
         />
       </div>
+
+      {(rtiFiles.length > 0 || bankFiles.length > 0) && (
+        <p className="text-xs text-[var(--muted-foreground)] mb-6">
+          Entity is detected automatically from store numbers in RTI files and account
+          numbers in bank files. You can upload NGEN and Sharel files at the same time —
+          separate reconciliation sessions will be created for each.
+        </p>
+      )}
 
       {/* Error */}
       {error && (
