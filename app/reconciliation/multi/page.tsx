@@ -78,7 +78,9 @@ export default async function MultiReconciliationPage({ searchParams }: PageProp
           <ArrowLeft className="h-4 w-4" />
           Back
         </Link>
-        <h2 className="text-xl font-semibold">Multi-Entity Reconciliation</h2>
+        <h2 className="text-xl font-semibold">
+          {tabs.map((t) => t.entityName).join(" - ")} Reconciliation
+        </h2>
         <p className="text-sm text-[var(--muted-foreground)] mt-1">
           {tabs.length} entities reconciled
         </p>

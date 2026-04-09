@@ -4,8 +4,12 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { HeaderNav } from "@/components/HeaderNav";
 
 export const metadata: Metadata = {
-  title: "Deposit Reconciliation — J9 Systems",
+  title: "Deposit Reconciliation — Sharel-NGEN",
   description: "McDonald's franchise deposit reconciliation tool",
+  icons: {
+    icon: "https://res.cloudinary.com/duy32f0q4/image/upload/q_auto/f_auto/v1775746603/Untitled_design_2_cmzpwm.png",
+    apple: "https://res.cloudinary.com/duy32f0q4/image/upload/q_auto/f_auto/v1775746603/Untitled_design_2_cmzpwm.png",
+  },
 };
 
 export default function RootLayout({
@@ -20,9 +24,12 @@ export default function RootLayout({
           <header className="border-b border-[var(--border)] px-6 py-4">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <a href="/" className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-[#7c3aed] flex items-center justify-center text-white font-bold text-sm">
-                  J9
-                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://res.cloudinary.com/duy32f0q4/image/upload/q_auto/f_auto/v1775746619/Untitled_design_1_vbkzsn.png"
+                  alt="Sharel-NGEN"
+                  className="h-8 w-8 rounded-lg object-cover"
+                />
                 <h1 className="text-lg font-semibold tracking-tight">
                   Deposit Reconciliation
                 </h1>

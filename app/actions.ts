@@ -29,7 +29,8 @@ export async function getRecentSessions() {
        total_rti_deposits, total_bank_deposits,
        bank_upload_ids,
        rti_uploads(file_name, date_from, date_to),
-       bank_uploads(file_name)`
+       bank_uploads(file_name),
+       entities(name)`
     )
     .order("created_at", { ascending: false })
     .limit(10);
