@@ -27,6 +27,7 @@ interface RecentSession {
   total_bank_deposits: number;
   rti_uploads: UploadInfo[] | UploadInfo | null;
   bank_uploads: BankUploadInfo[] | BankUploadInfo | null;
+  entities: { name: string } | { name: string }[] | null;
 }
 
 function getRtiUpload(session: RecentSession): UploadInfo | undefined {
@@ -40,6 +41,14 @@ function getBankFileNames(session: RecentSession): string[] {
     return session.bank_uploads.map((b) => b.file_name);
   }
   return [session.bank_uploads.file_name];
+}
+
+function getEntityName(session: RecentSession): string {
+  if (!session.entities) return "Unknown";
+  if (Array.isArray(session.entities)) {
+    return session.entities[0]?.name ?? "Unknown";
+  }
+  return session.entities.name ?? "Unknown";
 }
 
 export default function HomePage() {
@@ -209,6 +218,7 @@ export default function HomePage() {
             {recentSessions.map((session) => {
               const rti = getRtiUpload(session);
               const bankNames = getBankFileNames(session);
+              const entityName = getEntityName(session);
               const bankLabel =
                 bankNames.length === 0
                   ? "Unknown Bank"
@@ -230,6 +240,9 @@ export default function HomePage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">
+                          {entityName} Reconciliation
+                        </span>
+                        <span className="text-xs text-[var(--muted-foreground)]">
                           {rti?.date_from ?? "?"} —{" "}
                           {rti?.date_to ?? "?"}
                         </span>

@@ -99,17 +99,14 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
         if (store !== storeFilter) return false;
       }
       if (amountSearch.trim()) {
-        const q = amountSearch.trim().replace(/[$,]/g, "");
-        const num = parseFloat(q);
-        if (!isNaN(num)) {
-          const rtiMatch = r.rti_amount !== null && Math.abs(r.rti_amount - num) < 0.005;
-          const bankMatch = r.bank_amount !== null && Math.abs(r.bank_amount - num) < 0.005;
-          if (!rtiMatch && !bankMatch) return false;
-        } else {
-          const rtiStr = r.rti_amount?.toFixed(2) ?? "";
-          const bankStr = r.bank_amount?.toFixed(2) ?? "";
-          if (!rtiStr.includes(q) && !bankStr.includes(q)) return false;
-        }
+        const q = amountSearch.trim().replace(/[$,]/g, "").toLowerCase();
+        const rtiStr = r.rti_amount?.toFixed(2) ?? "";
+        const bankStr = r.bank_amount?.toFixed(2) ?? "";
+        const storeNum = r.rti_transactions?.store_number ?? "";
+        const storeName = getStoreName(storeNum).toLowerCase();
+        const amountMatch = rtiStr.includes(q) || bankStr.includes(q);
+        const storeMatch = storeNum.includes(q) || storeName.includes(q);
+        if (!amountMatch && !storeMatch) return false;
       }
       return true;
     });
@@ -262,16 +259,6 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
           <option value="bank_only">Bank Only</option>
         </select>
 
-        <input
-          type="text"
-          placeholder="Search amount…"
-          value={amountSearch}
-          onChange={(e) => setAmountSearch(e.target.value)}
-          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm
-                     text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]
-                     w-36 placeholder:text-[var(--muted-foreground)]"
-        />
-
         <select
           value={storeFilter}
           onChange={(e) => setStoreFilter(e.target.value)}
@@ -284,6 +271,16 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
             </option>
           ))}
         </select>
+
+        <input
+          type="text"
+          placeholder="Search amount, store…"
+          value={amountSearch}
+          onChange={(e) => setAmountSearch(e.target.value)}
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm
+                     text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]
+                     w-44 placeholder:text-[var(--muted-foreground)]"
+        />
 
         <div className="flex-1" />
 
