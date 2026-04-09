@@ -48,14 +48,18 @@ type SortField =
 type SortDir = "asc" | "desc";
 
 const BANK_ACCOUNT_COLORS = [
-  "#8b5cf6", // violet
-  "#0ea5e9", // sky blue
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-  "#f97316", // orange
-  "#6366f1", // indigo
+  "#e6194b", // red
+  "#3cb44b", // green
+  "#4363d8", // blue
+  "#f58231", // orange
+  "#911eb4", // purple
+  "#42d4f4", // cyan
+  "#f032e6", // magenta
+  "#bfef45", // lime
+  "#fabed4", // pink
+  "#dcbeff", // lavender
+  "#9a6324", // brown
+  "#800000", // maroon
 ];
 
 function getBankAccountColor(accountNumber: string): string {
