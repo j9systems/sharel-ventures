@@ -38,6 +38,7 @@ export default function ReportCardsPage() {
   const [showPriorYearModal, setShowPriorYearModal] = useState(false);
 
   // Batch upload (entity-level)
+  const [entityViewTab, setEntityViewTab] = useState<"overview" | "upload">("overview");
   const [selectedBatchMonth, setSelectedBatchMonth] = useState<number | null>(null);
   const [batchUploadStatuses, setBatchUploadStatuses] = useState<
     Record<UploadType, Record<string, UploadStatus>>
@@ -60,6 +61,7 @@ export default function ReportCardsPage() {
       setSelectedStoreId("");
       setSelectedMonth(null);
       setSelectedBatchMonth(null);
+      setEntityViewTab("overview");
     });
   }, [selectedEntityId]);
 
@@ -209,67 +211,100 @@ export default function ReportCardsPage() {
         </div>
       </div>
 
-      {/* No store selected — show rollup + batch upload */}
-      {!selectedStoreId && !selectedBatchMonth && (
+      {/* No store selected — entity-level view with tabs */}
+      {!selectedStoreId && (
         <>
-          <RollupView
-            data={rollupData}
-            year={selectedYear}
-            onSelectStore={(storeId) => {
-              setSelectedStoreId(storeId);
-              setSelectedMonth(null);
-            }}
-          />
+          {/* Tab bar — only show when an entity is selected */}
           {selectedEntityId && (
-            <div className="mt-6">
-              <h2 className="text-lg font-semibold mb-4">
-                Batch Upload — {selectedYear}
-              </h2>
-              <p className="text-sm text-[var(--muted-foreground)] mb-4">
-                Select a month to upload files for all stores at once.
-              </p>
-              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-3">
-                {MONTH_NAMES_SHORT.map((name, idx) => {
-                  const m = idx + 1;
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => setSelectedBatchMonth(m)}
-                      className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-center transition-colors cursor-pointer hover:border-[var(--primary)]"
-                    >
-                      <div className="text-sm font-medium">{name}</div>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="flex items-center gap-1 mb-6 border-b border-[var(--border)]">
+              <button
+                onClick={() => {
+                  setEntityViewTab("overview");
+                  setSelectedBatchMonth(null);
+                }}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  entityViewTab === "overview"
+                    ? "border-[var(--primary)] text-[var(--foreground)]"
+                    : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                Store Overview
+              </button>
+              <button
+                onClick={() => setEntityViewTab("upload")}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  entityViewTab === "upload"
+                    ? "border-[var(--primary)] text-[var(--foreground)]"
+                    : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                Upload Files
+              </button>
             </div>
           )}
-        </>
-      )}
 
-      {/* Batch month selected — show batch upload panel */}
-      {!selectedStoreId && selectedBatchMonth && selectedEntityId && (
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => setSelectedBatchMonth(null)}
-              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm transition-colors"
-            >
-              &larr; Back
-            </button>
-            <h2 className="text-lg font-semibold">
-              Batch Upload — {MONTH_NAMES_SHORT[selectedBatchMonth - 1]} {selectedYear}
-            </h2>
-          </div>
-          <BatchUploadPanel
-            entityId={selectedEntityId}
-            year={selectedYear}
-            month={selectedBatchMonth}
-            stores={stores}
-            uploadStatuses={batchUploadStatuses}
-            onUploadComplete={handleUploadComplete}
-          />
-        </div>
+          {/* Overview tab (or default when no entity selected) */}
+          {(entityViewTab === "overview" || !selectedEntityId) && (
+            <RollupView
+              data={rollupData}
+              year={selectedYear}
+              onSelectStore={(storeId) => {
+                setSelectedStoreId(storeId);
+                setSelectedMonth(null);
+              }}
+            />
+          )}
+
+          {/* Upload tab — month grid or batch upload panel */}
+          {entityViewTab === "upload" && selectedEntityId && (
+            <>
+              {!selectedBatchMonth && (
+                <div>
+                  <p className="text-sm text-[var(--muted-foreground)] mb-4">
+                    Each file contains data for all stores. Select a month, then upload each file type once.
+                  </p>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-3">
+                    {MONTH_NAMES_SHORT.map((name, idx) => {
+                      const m = idx + 1;
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => setSelectedBatchMonth(m)}
+                          className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-center transition-colors cursor-pointer hover:border-[var(--primary)]"
+                        >
+                          <div className="text-sm font-medium">{name}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {selectedBatchMonth && (
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <button
+                      onClick={() => setSelectedBatchMonth(null)}
+                      className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm transition-colors"
+                    >
+                      &larr; Back to months
+                    </button>
+                    <h2 className="text-lg font-semibold">
+                      {MONTH_NAMES_SHORT[selectedBatchMonth - 1]} {selectedYear}
+                    </h2>
+                  </div>
+                  <BatchUploadPanel
+                    entityId={selectedEntityId}
+                    year={selectedYear}
+                    month={selectedBatchMonth}
+                    stores={stores}
+                    uploadStatuses={batchUploadStatuses}
+                    onUploadComplete={handleUploadComplete}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
       {/* Store selected — show month grid */}
