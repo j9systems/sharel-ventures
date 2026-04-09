@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { Entity, Store } from "@/lib/types";
+import type { Store } from "@/lib/types";
 import type { UploadType, UploadStatus } from "@/lib/report-card/types";
 import { MONTH_NAMES_SHORT } from "@/lib/report-card/constants";
 import { getBatchUploadStatuses } from "./actions";
@@ -10,10 +10,7 @@ import { BatchUploadPanel } from "./BatchUploadPanel";
 interface BatchUploadDrawerProps {
   open: boolean;
   onClose: () => void;
-  entities: Entity[];
   stores: Store[];
-  selectedEntityId: string;
-  onEntityChange: (id: string) => void;
   selectedYear: number;
   onUploadComplete: () => void;
 }
@@ -21,10 +18,7 @@ interface BatchUploadDrawerProps {
 export function BatchUploadDrawer({
   open,
   onClose,
-  entities,
   stores,
-  selectedEntityId,
-  onEntityChange,
   selectedYear,
   onUploadComplete,
 }: BatchUploadDrawerProps) {
@@ -34,22 +28,22 @@ export function BatchUploadDrawer({
   >({} as Record<UploadType, Record<string, UploadStatus>>);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Reset month when drawer closes (but not entity)
+  // Reset month when drawer closes
   useEffect(() => {
     if (!open) {
       setSelectedMonth(null);
     }
   }, [open]);
 
-  // Load batch statuses when entity + month are selected
+  // Load batch statuses when month is selected
   const loadStatuses = useCallback(async () => {
-    if (!selectedEntityId || !selectedMonth) {
+    if (!selectedMonth) {
       setUploadStatuses({} as Record<UploadType, Record<string, UploadStatus>>);
       return;
     }
-    const data = await getBatchUploadStatuses(selectedEntityId, selectedYear, selectedMonth);
+    const data = await getBatchUploadStatuses(selectedYear, selectedMonth);
     setUploadStatuses(data);
-  }, [selectedEntityId, selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   useEffect(() => {
     loadStatuses();
@@ -79,7 +73,7 @@ export function BatchUploadDrawer({
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
     if (focusable.length > 0) focusable[0].focus();
-  }, [open, selectedMonth, selectedEntityId]);
+  }, [open, selectedMonth]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -131,29 +125,8 @@ export function BatchUploadDrawer({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {/* State 1: No entity selected */}
-            {!selectedEntityId && (
-              <div className="flex flex-col items-center justify-center py-12">
-                <p className="text-[var(--muted-foreground)] text-sm mb-4">
-                  Select an entity to upload files
-                </p>
-                <select
-                  value={selectedEntityId}
-                  onChange={(e) => onEntityChange(e.target.value)}
-                  className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm w-full max-w-[280px]"
-                >
-                  <option value="">Choose an entity…</option>
-                  {entities.map((ent) => (
-                    <option key={ent.id} value={ent.id}>
-                      {ent.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* State 2: Entity selected, no month */}
-            {selectedEntityId && !selectedMonth && (
+            {/* No month selected — show month grid */}
+            {!selectedMonth && (
               <div>
                 <p className="text-sm text-[var(--muted-foreground)] mb-4">
                   Each file contains data for all stores. Select a month, then upload each file type once.
@@ -175,8 +148,8 @@ export function BatchUploadDrawer({
               </div>
             )}
 
-            {/* State 3: Entity + month selected — show upload panel */}
-            {selectedEntityId && selectedMonth && (
+            {/* Month selected — show upload panel */}
+            {selectedMonth && (
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <button
@@ -190,7 +163,6 @@ export function BatchUploadDrawer({
                   </h3>
                 </div>
                 <BatchUploadPanel
-                  entityId={selectedEntityId}
                   year={selectedYear}
                   month={selectedMonth}
                   stores={stores}

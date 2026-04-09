@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
     const uploadType = formData.get("upload_type") as UploadType | null;
 
     // Validate
-    if (!file || !entityId || !yearStr || !monthStr || !uploadType) {
+    if (!file || !yearStr || !monthStr || !uploadType) {
       return NextResponse.json(
-        { error: "Missing required fields: file, entity_id, year, month, upload_type" },
+        { error: "Missing required fields: file, year, month, upload_type" },
         { status: 400 }
       );
     }
@@ -64,17 +64,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch all active stores for this entity, sorted by store_number numerically
-    const { data: stores, error: storesError } = await supabase
+    // Fetch all active stores (optionally filtered by entity), sorted by store_number
+    let storeQuery = supabase
       .from("stores")
       .select("id, store_number, display_name, entity_id")
-      .eq("entity_id", entityId)
       .eq("active", true)
       .order("store_number");
+    if (entityId) {
+      storeQuery = storeQuery.eq("entity_id", entityId);
+    }
+    const { data: stores, error: storesError } = await storeQuery;
 
     if (storesError || !stores || stores.length === 0) {
       return NextResponse.json(
-        { error: "No active stores found for this entity" },
+        { error: "No active stores found" },
         { status: 404 }
       );
     }

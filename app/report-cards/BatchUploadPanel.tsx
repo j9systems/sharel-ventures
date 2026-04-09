@@ -6,7 +6,6 @@ import { UPLOAD_TYPES } from "@/lib/report-card/constants";
 import { BatchUploadCard } from "./BatchUploadCard";
 
 interface BatchUploadPanelProps {
-  entityId: string;
   year: number;
   month: number;
   stores: Store[];
@@ -15,7 +14,6 @@ interface BatchUploadPanelProps {
 }
 
 export function BatchUploadPanel({
-  entityId,
   year,
   month,
   stores,
@@ -49,7 +47,6 @@ export function BatchUploadPanel({
             uploadType={ut.type}
             label={ut.label}
             description={ut.description}
-            entityId={entityId}
             year={year}
             month={month}
             stores={stores}

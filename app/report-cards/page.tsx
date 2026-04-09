@@ -207,7 +207,6 @@ export default function ReportCardsPage() {
             setSelectedStoreId(storeId);
             setSelectedMonth(null);
           }}
-          onUploadClick={() => setUploadDrawerOpen(true)}
         />
       )}
 
@@ -337,10 +336,7 @@ export default function ReportCardsPage() {
       <BatchUploadDrawer
         open={uploadDrawerOpen}
         onClose={() => setUploadDrawerOpen(false)}
-        entities={entities}
         stores={stores}
-        selectedEntityId={selectedEntityId}
-        onEntityChange={setSelectedEntityId}
         selectedYear={selectedYear}
         onUploadComplete={handleUploadComplete}
       />

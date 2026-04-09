@@ -130,17 +130,15 @@ export async function savePriorYearOverride(
 }
 
 export async function getBatchUploadStatuses(
-  entityId: string,
   year: number,
   month: number
 ): Promise<Record<UploadType, Record<string, UploadStatus>>> {
   const supabase = getSupabase();
 
-  // Get all stores for this entity
+  // Get all active stores across the organization
   const { data: stores } = await supabase
     .from("stores")
     .select("id")
-    .eq("entity_id", entityId)
     .eq("active", true);
 
   if (!stores || stores.length === 0) {
