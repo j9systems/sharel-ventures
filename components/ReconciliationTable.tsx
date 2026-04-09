@@ -36,7 +36,8 @@ interface ReconciliationTableProps {
 
 type SortField =
   | "store"
-  | "date"
+  | "rti_date"
+  | "bank_date"
   | "rti_amount"
   | "bank_amount"
   | "delta"
@@ -124,15 +125,15 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
           cmp = sa.localeCompare(sb);
           break;
         }
-        case "date": {
-          const da =
-            a.rti_transactions?.transaction_date ??
-            a.bank_transactions?.post_date ??
-            "";
-          const db =
-            b.rti_transactions?.transaction_date ??
-            b.bank_transactions?.post_date ??
-            "";
+        case "rti_date": {
+          const da = a.rti_transactions?.transaction_date ?? "";
+          const db = b.rti_transactions?.transaction_date ?? "";
+          cmp = da.localeCompare(db);
+          break;
+        }
+        case "bank_date": {
+          const da = a.bank_transactions?.post_date ?? "";
+          const db = b.bank_transactions?.post_date ?? "";
           cmp = da.localeCompare(db);
           break;
         }
@@ -192,7 +193,8 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
   const exportCSV = useCallback(() => {
     const headers = [
       "Store",
-      "Date",
+      "RTI Date",
+      "Bank Date",
       "Deposit Type",
       "RTI Amount",
       "Bank Amount",
@@ -205,9 +207,8 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
     for (const r of sorted) {
       const row = [
         r.rti_transactions?.store_number ?? "Unknown",
-        r.rti_transactions?.transaction_date ??
-          r.bank_transactions?.post_date ??
-          "",
+        r.rti_transactions?.transaction_date ?? "",
+        r.bank_transactions?.post_date ?? "",
         r.rti_transactions?.transaction_type ?? "",
         r.rti_amount?.toFixed(2) ?? "",
         r.bank_amount?.toFixed(2) ?? "",
@@ -307,7 +308,10 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
                   <SortButton field="store">Store</SortButton>
                 </th>
                 <th className="px-4 py-3 font-medium">
-                  <SortButton field="date">Date</SortButton>
+                  <SortButton field="rti_date">RTI Date</SortButton>
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  <SortButton field="bank_date">Bank Date</SortButton>
                 </th>
                 <th className="px-4 py-3 font-medium">Deposit #</th>
                 <th className="px-4 py-3 font-medium text-right">
@@ -329,10 +333,8 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
               {sorted.map((row) => {
                 const store =
                   row.rti_transactions?.store_number ?? "Unknown";
-                const date =
-                  row.rti_transactions?.transaction_date ??
-                  row.bank_transactions?.post_date ??
-                  "—";
+                const rtiDate = row.rti_transactions?.transaction_date ?? "—";
+                const bankDate = row.bank_transactions?.post_date ?? "—";
                 const depositType =
                   row.rti_transactions?.transaction_type
                     ?.replace(/_/g, " ")
@@ -350,7 +352,10 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
                       </div>
                     </td>
                     <td className="px-4 py-3 text-[var(--muted-foreground)]">
-                      {date}
+                      {rtiDate}
+                    </td>
+                    <td className="px-4 py-3 text-[var(--muted-foreground)]">
+                      {bankDate}
                       {row.bank_transactions?.description && (
                         <div
                           className="text-xs text-[var(--muted-foreground)] truncate max-w-[180px]"
@@ -453,7 +458,7 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
               {sorted.length === 0 && (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-4 py-12 text-center text-[var(--muted-foreground)]"
                   >
                     No results match your filters

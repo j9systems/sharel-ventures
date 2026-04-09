@@ -159,9 +159,9 @@ export async function runReconciliation(
       continue;
     }
 
-    // c) Exact amount within a date window (bank posts typically lag RTI by 1-5 days)
+    // c) Exact amount within a date window (bank posts typically lag RTI by 1-7 days)
     const windowStart = addDays(rtiDate, -1);
-    const windowEnd = addDays(rtiDate, 5);
+    const windowEnd = addDays(rtiDate, 7);
     const nearIdx = bankPool.findIndex(
       (b) =>
         b.post_date >= windowStart &&
