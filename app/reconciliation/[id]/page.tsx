@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { getReconciliationSession, getReconciliationResults } from "@/app/actions";
+import { getStoreDisplayNames } from "@/lib/entityDetection";
 import { SummaryBar } from "@/components/SummaryBar";
 import { ReconciliationTable } from "@/components/ReconciliationTable";
 import { ArrowLeft } from "lucide-react";
@@ -16,10 +17,13 @@ export default async function ReconciliationPage({ params }: PageProps) {
   let session;
   let results;
 
+  let storeNames: Record<string, string> = {};
+
   try {
-    [session, results] = await Promise.all([
+    [session, results, storeNames] = await Promise.all([
       getReconciliationSession(id),
       getReconciliationResults(id),
+      getStoreDisplayNames(),
     ]);
   } catch {
     return (
@@ -96,7 +100,7 @@ export default async function ReconciliationPage({ params }: PageProps) {
 
       {/* Results table */}
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <ReconciliationTable results={results as any} />
+      <ReconciliationTable results={results as any} storeNames={storeNames} />
     </div>
   );
 }

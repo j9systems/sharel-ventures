@@ -3,7 +3,9 @@
 import { supabase } from "@/lib/supabase";
 import { parseRTI } from "@/lib/parsers/parseRTI";
 import { getBankParser, isBankParserAvailable } from "@/lib/parsers/parseBank";
+import { universalBankParser } from "@/lib/parsers/universalBank";
 import { runReconciliation } from "@/lib/reconcile";
+import { detectEntityFromRTIRows, detectEntityFromBankRows } from "@/lib/entityDetection";
 import type { ParsedBankRow, ParseResult } from "@/lib/types";
 
 export async function getEntities() {
@@ -342,4 +344,246 @@ export async function markResultReviewed(resultId: string, note: string) {
     .eq("id", resultId);
 
   if (error) throw new Error(error.message);
+}
+
+export interface AutoReconcileSessionResult {
+  entityId: string;
+  entityName: string;
+  sessionId: string;
+}
+
+export type AutoReconcileResult =
+  | { success: true; sessions: AutoReconcileSessionResult[] }
+  | { success: false; error: string };
+
+export async function uploadAndReconcileAuto(
+  formData: FormData
+): Promise<AutoReconcileResult> {
+  try {
+    const rtiFiles = formData.getAll("rtiFiles") as File[];
+    const bankFiles = formData.getAll("bankFiles") as File[];
+
+    if (rtiFiles.length === 0 || bankFiles.length === 0) {
+      return { success: false, error: "Please provide both RTI and bank files." };
+    }
+
+    // Parse and group RTI files by entity
+    const rtiByEntity: Record<
+      string,
+      { entityName: string; files: { fileName: string; result: ReturnType<typeof parseRTI> }[] }
+    > = {};
+
+    for (const rtiFile of rtiFiles) {
+      const parsed = parseRTI(await rtiFile.text());
+      if (parsed.rows.length === 0) {
+        const detail = parsed.errors.length > 0
+          ? ` Errors: ${parsed.errors.slice(0, 3).join("; ")}`
+          : "";
+        return { success: false, error: `RTI file "${rtiFile.name}" contains no valid rows.${detail}` };
+      }
+
+      let entity: { entityId: string; entityName: string };
+      try {
+        entity = await detectEntityFromRTIRows(parsed.rows);
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : String(err) };
+      }
+
+      if (!rtiByEntity[entity.entityId]) {
+        rtiByEntity[entity.entityId] = { entityName: entity.entityName, files: [] };
+      }
+      rtiByEntity[entity.entityId].files.push({ fileName: rtiFile.name, result: parsed });
+    }
+
+    // Parse and group bank files by entity
+    const bankByEntity: Record<
+      string,
+      { files: { file: File; result: ParseResult<ParsedBankRow> }[] }
+    > = {};
+
+    for (const bankFile of bankFiles) {
+      const parsed = universalBankParser.parse(
+        Buffer.from(await bankFile.arrayBuffer()),
+        bankFile.name
+      );
+      if (parsed.rows.length === 0) {
+        const detail = parsed.errors.length > 0
+          ? ` Errors: ${parsed.errors.slice(0, 3).join("; ")}`
+          : "";
+        return { success: false, error: `Bank file "${bankFile.name}" contains no valid rows.${detail}` };
+      }
+
+      const entity = await detectEntityFromBankRows(parsed.rows);
+      if (!entity) {
+        return { success: false, error: `Could not detect entity for bank file "${bankFile.name}"` };
+      }
+
+      if (!bankByEntity[entity.entityId]) {
+        bankByEntity[entity.entityId] = { files: [] };
+      }
+      bankByEntity[entity.entityId].files.push({ file: bankFile, result: parsed });
+    }
+
+    // Validate every RTI entity has at least one bank file
+    for (const entityId of Object.keys(rtiByEntity)) {
+      if (!bankByEntity[entityId]) {
+        return {
+          success: false,
+          error: `No bank files detected for entity "${rtiByEntity[entityId].entityName}". Each RTI entity needs at least one matching bank file.`,
+        };
+      }
+    }
+
+    // Process each entity
+    const sessions: AutoReconcileSessionResult[] = [];
+
+    for (const entityId of Object.keys(rtiByEntity)) {
+      const rtiGroup = rtiByEntity[entityId];
+
+      // Merge all RTI rows across files for this entity
+      const allRtiRows = rtiGroup.files.flatMap((f) => f.result.rows);
+      const rtiDateFrom = rtiGroup.files.reduce(
+        (min, f) => (!min || f.result.dateFrom < min ? f.result.dateFrom : min),
+        ""
+      );
+      const rtiDateTo = rtiGroup.files.reduce(
+        (max, f) => (!max || f.result.dateTo > max ? f.result.dateTo : max),
+        ""
+      );
+      const rtiFileNames = rtiGroup.files.map((f) => f.fileName).join(", ");
+
+      // Duplicate check
+      const { data: existingRti } = await supabase
+        .from("rti_uploads")
+        .select("id, file_name")
+        .eq("entity_id", entityId)
+        .eq("date_from", rtiDateFrom)
+        .eq("date_to", rtiDateTo)
+        .limit(10);
+
+      if (existingRti && existingRti.length > 0) {
+        const existingIds = existingRti.map((r: { id: string }) => r.id);
+        const { data: linkedSessions } = await supabase
+          .from("reconciliation_sessions")
+          .select("rti_upload_id")
+          .in("rti_upload_id", existingIds);
+
+        const linkedUploadIds = new Set(
+          (linkedSessions ?? []).map((s: { rti_upload_id: string }) => s.rti_upload_id)
+        );
+        const orphanedUploads = existingRti.filter((r: { id: string }) => !linkedUploadIds.has(r.id));
+        const linkedUploads = existingRti.filter((r: { id: string }) => linkedUploadIds.has(r.id));
+
+        for (const orphan of orphanedUploads) {
+          await supabase.from("rti_transactions").delete().eq("upload_id", orphan.id);
+          await supabase.from("rti_uploads").delete().eq("id", orphan.id);
+        }
+
+        if (linkedUploads.length > 0) {
+          return {
+            success: false,
+            error: `An RTI upload already exists for ${rtiDateFrom} to ${rtiDateTo} (file: ${linkedUploads[0].file_name}). Delete it first or use a different date range.`,
+          };
+        }
+      }
+
+      // Insert RTI upload
+      const depositRows = allRtiRows.filter((r) => r.is_deposit);
+      const { data: rtiUpload, error: rtiUploadErr } = await supabase
+        .from("rti_uploads")
+        .insert({
+          entity_id: entityId,
+          file_name: rtiFileNames,
+          date_from: rtiDateFrom,
+          date_to: rtiDateTo,
+          row_count: allRtiRows.length,
+          deposit_row_count: depositRows.length,
+        })
+        .select("id")
+        .single();
+
+      if (rtiUploadErr) {
+        return { success: false, error: `Failed to save RTI upload: ${rtiUploadErr.message}` };
+      }
+
+      // Insert RTI transactions in batches (DO NOT include is_deposit)
+      const rtiTransactions = allRtiRows.map((row) => ({
+        upload_id: rtiUpload.id,
+        store_number: row.store_number,
+        transaction_date: row.transaction_date,
+        raw_label: row.raw_label,
+        transaction_type: row.transaction_type,
+        type_code: row.type_code,
+        amount: row.amount,
+      }));
+
+      for (let i = 0; i < rtiTransactions.length; i += 500) {
+        const batch = rtiTransactions.slice(i, i + 500);
+        const { error } = await supabase.from("rti_transactions").insert(batch);
+        if (error) {
+          return { success: false, error: `Failed to insert RTI transactions: ${error.message}` };
+        }
+      }
+
+      // Insert bank files
+      const bankUploadIds: string[] = [];
+
+      for (const { file: bankFile, result: bankResult } of bankByEntity[entityId].files) {
+        const ext = bankFile.name.toLowerCase().split(".").pop() ?? "";
+        const fileFormat = ext === "csv" ? "csv" : "xls";
+        const accountNumber = bankResult.rows[0]?.account_number ?? "";
+
+        const { data: bankUpload, error: bankUploadErr } = await supabase
+          .from("bank_uploads")
+          .insert({
+            entity_id: entityId,
+            file_name: bankFile.name,
+            file_format: fileFormat,
+            bank_name: "Unknown",
+            account_number: accountNumber,
+            date_from: bankResult.dateFrom,
+            date_to: bankResult.dateTo,
+            row_count: bankResult.rows.length,
+          })
+          .select("id")
+          .single();
+
+        if (bankUploadErr) {
+          return { success: false, error: `Failed to save bank upload for "${bankFile.name}": ${bankUploadErr.message}` };
+        }
+
+        bankUploadIds.push(bankUpload.id);
+
+        // Insert bank transactions in batches
+        const bankTransactions = bankResult.rows.map((row) => ({
+          upload_id: bankUpload.id,
+          post_date: row.post_date,
+          description: row.description,
+          credit: row.credit,
+          debit: row.debit,
+          status: row.status,
+          transaction_category: row.transaction_category,
+          store_number: row.store_number,
+        }));
+
+        for (let i = 0; i < bankTransactions.length; i += 500) {
+          const batch = bankTransactions.slice(i, i + 500);
+          const { error } = await supabase.from("bank_transactions").insert(batch);
+          if (error) {
+            return { success: false, error: `Failed to insert bank transactions for "${bankFile.name}": ${error.message}` };
+          }
+        }
+      }
+
+      // Run reconciliation
+      const sessionId = await runReconciliation(entityId, rtiUpload.id, bankUploadIds);
+      sessions.push({ entityId, entityName: rtiGroup.entityName, sessionId });
+    }
+
+    return { success: true, sessions };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "An unexpected error occurred";
+    console.error("[uploadAndReconcileAuto] Unhandled error:", err);
+    return { success: false, error: message };
+  }
 }

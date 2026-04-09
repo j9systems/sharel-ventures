@@ -31,6 +31,7 @@ interface ResultRow {
 
 interface ReconciliationTableProps {
   results: ResultRow[];
+  storeNames: Record<string, string>;
 }
 
 type SortField =
@@ -63,15 +64,21 @@ function formatDelta(val: number | null): string {
   return `${sign}${formatCurrency(val).replace("$", "$")}`;
 }
 
-export function ReconciliationTable({ results }: ReconciliationTableProps) {
+export function ReconciliationTable({ results, storeNames }: ReconciliationTableProps) {
   const [sortField, setSortField] = useState<SortField>("status");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [statusFilter, setStatusFilter] = useState<MatchStatus | "all">("all");
   const [storeFilter, setStoreFilter] = useState("");
+  const [amountSearch, setAmountSearch] = useState("");
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [localResults, setLocalResults] = useState(results);
   const [submitting, setSubmitting] = useState(false);
+
+  function getStoreName(storeNumber: string | undefined | null): string {
+    if (!storeNumber) return "Unknown";
+    return storeNames[storeNumber] ?? `Store #${storeNumber}`;
+  }
 
   // Unique stores for filter
   const stores = useMemo(() => {
@@ -91,9 +98,22 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
         const store = r.rti_transactions?.store_number ?? "";
         if (store !== storeFilter) return false;
       }
+      if (amountSearch.trim()) {
+        const q = amountSearch.trim().replace(/[$,]/g, "");
+        const num = parseFloat(q);
+        if (!isNaN(num)) {
+          const rtiMatch = r.rti_amount !== null && Math.abs(r.rti_amount - num) < 0.005;
+          const bankMatch = r.bank_amount !== null && Math.abs(r.bank_amount - num) < 0.005;
+          if (!rtiMatch && !bankMatch) return false;
+        } else {
+          const rtiStr = r.rti_amount?.toFixed(2) ?? "";
+          const bankStr = r.bank_amount?.toFixed(2) ?? "";
+          if (!rtiStr.includes(q) && !bankStr.includes(q)) return false;
+        }
+      }
       return true;
     });
-  }, [localResults, statusFilter, storeFilter]);
+  }, [localResults, statusFilter, storeFilter, amountSearch]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -242,6 +262,16 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
           <option value="bank_only">Bank Only</option>
         </select>
 
+        <input
+          type="text"
+          placeholder="Search amount…"
+          value={amountSearch}
+          onChange={(e) => setAmountSearch(e.target.value)}
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm
+                     text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]
+                     w-36 placeholder:text-[var(--muted-foreground)]"
+        />
+
         <select
           value={storeFilter}
           onChange={(e) => setStoreFilter(e.target.value)}
@@ -250,7 +280,7 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
           <option value="">All Stores</option>
           {stores.map((s) => (
             <option key={s} value={s}>
-              Store #{s}
+              {getStoreName(s)} (#{s})
             </option>
           ))}
         </select>
@@ -316,10 +346,23 @@ export function ReconciliationTable({ results }: ReconciliationTableProps) {
                     key={row.id}
                     className="bg-[var(--background)] hover:bg-[var(--muted)] transition-colors"
                   >
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {store !== "Unknown" ? `#${store}` : store}
+                    <td className="px-4 py-3">
+                      <div>
+                        <div className="font-medium text-[var(--foreground)]">{getStoreName(store)}</div>
+                        <div className="text-xs text-[var(--muted-foreground)]">#{store}</div>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-[var(--muted-foreground)]">{date}</td>
+                    <td className="px-4 py-3 text-[var(--muted-foreground)]">
+                      {date}
+                      {row.bank_transactions?.description && (
+                        <div
+                          className="text-xs text-[var(--muted-foreground)] truncate max-w-[180px]"
+                          title={row.bank_transactions.description}
+                        >
+                          {row.bank_transactions.description}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{depositType}</td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${

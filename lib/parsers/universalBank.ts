@@ -2,11 +2,22 @@ import * as XLSX from "xlsx";
 import type { BankParser, ParsedBankRow, ParseResult } from "@/lib/types";
 
 function categorizeDescription(description: string): string {
-  if (description === "Deposit") return "physical_deposit";
-  if (description.startsWith("Electronic Deposit")) return "card_settlement";
-  if (description.startsWith("Check-Inclearings")) return "check";
-  if (description.startsWith("Electronic Withdrawal")) return "withdrawal";
+  const lower = description.toLowerCase();
+
+  if (lower.startsWith("electronic deposit")) return "card_settlement";
+  if (lower.startsWith("sweep deposit") || lower.startsWith("sweep withdrawal")) return "sweep";
+  if (lower === "deposit") return "physical_deposit";
+  if (lower.startsWith("descriptive deposit")) return "physical_deposit";
+  if (lower.startsWith("deposit -")) return "physical_deposit";
+  if (lower.startsWith("electronic withdrawal")) return "withdrawal";
+  if (lower.startsWith("check")) return "check";
   return "other";
+}
+
+function extractStoreNumber(description: string, category: string): string | null {
+  if (category !== "physical_deposit") return null;
+  const match = description.match(/-\s+(?:store\s*)?#?\s*(\d{3,6})/i);
+  return match ? match[1] : null;
 }
 
 function formatDate(year: number, month: number, day: number): string {
@@ -14,13 +25,11 @@ function formatDate(year: number, month: number, day: number): string {
 }
 
 function parseExcelDate(serial: number): string {
-  // Use XLSX built-in date parsing for Excel serial numbers
   const parsed = XLSX.SSF.parse_date_code(serial);
   return formatDate(parsed.y, parsed.m, parsed.d);
 }
 
 function parseDateString(dateStr: string): string | null {
-  // Try common date formats
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
   return formatDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
@@ -31,7 +40,6 @@ function parseXLS(buffer: Buffer): ParseResult<ParsedBankRow> {
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
-  // Get raw data without header transformation
   const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
     raw: true,
     defval: "",
@@ -89,14 +97,17 @@ function processRows(
     }
 
     // Parse amounts
-    const credit = creditRaw !== "" && creditRaw != null
-      ? parseFloat(String(creditRaw))
-      : null;
-    const debit = debitRaw !== "" && debitRaw != null
-      ? parseFloat(String(debitRaw))
-      : null;
+    const credit =
+      creditRaw !== "" && creditRaw != null
+        ? parseFloat(String(creditRaw))
+        : null;
+    const debit =
+      debitRaw !== "" && debitRaw != null
+        ? parseFloat(String(debitRaw))
+        : null;
 
     const category = categorizeDescription(description);
+    const storeNumber = extractStoreNumber(description, category);
 
     // Track date range
     if (!dateFrom || postDate < dateFrom) dateFrom = postDate;
@@ -111,14 +122,14 @@ function processRows(
       credit: credit !== null && !isNaN(credit) ? credit : null,
       status,
       transaction_category: category,
-      store_number: null, // NGEN has no store number for physical deposits
+      store_number: storeNumber,
     });
   }
 
   return { rows, dateFrom, dateTo, errors };
 }
 
-export const ngenBankParser: BankParser = {
+export const universalBankParser: BankParser = {
   parse(fileBuffer: Buffer, fileName: string): ParseResult<ParsedBankRow> {
     const ext = fileName.toLowerCase().split(".").pop();
 
