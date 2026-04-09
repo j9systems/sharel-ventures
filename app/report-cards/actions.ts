@@ -7,6 +7,8 @@ import type {
   ReportCardUpload,
   ReportCardMetrics,
   PartialMetrics,
+  UploadType,
+  UploadStatus,
 } from "@/lib/report-card/types";
 
 export async function getEntities(): Promise<Entity[]> {
@@ -125,6 +127,85 @@ export async function savePriorYearOverride(
       { onConflict: "store_id,year,month" }
     );
   if (error) throw new Error(error.message);
+}
+
+export async function getBatchUploadStatuses(
+  entityId: string,
+  year: number,
+  month: number
+): Promise<Record<UploadType, Record<string, UploadStatus>>> {
+  const supabase = getSupabase();
+
+  // Get all stores for this entity
+  const { data: stores } = await supabase
+    .from("stores")
+    .select("id")
+    .eq("entity_id", entityId)
+    .eq("active", true);
+
+  if (!stores || stores.length === 0) {
+    return {} as Record<UploadType, Record<string, UploadStatus>>;
+  }
+
+  const storeIds = stores.map((s) => s.id);
+
+  // Get all report_card_months for these stores in this year/month
+  const { data: months } = await supabase
+    .from("report_card_months")
+    .select("id, store_id")
+    .eq("year", year)
+    .eq("month", month)
+    .in("store_id", storeIds);
+
+  if (!months || months.length === 0) {
+    // Return all stores as "not_uploaded" for every type
+    const result = {} as Record<UploadType, Record<string, UploadStatus>>;
+    const uploadTypes: UploadType[] = [
+      "operations_report", "kiosk", "time_slice", "service",
+      "food_over_base", "comparison_report", "shop_tracker",
+      "bonus_program", "pnl", "labor",
+    ];
+    for (const ut of uploadTypes) {
+      result[ut] = {};
+      for (const sid of storeIds) {
+        result[ut][sid] = "not_uploaded";
+      }
+    }
+    return result;
+  }
+
+  const monthIds = months.map((m) => m.id);
+  const monthIdToStoreId = new Map(months.map((m) => [m.id, m.store_id]));
+
+  // Get all uploads for these months
+  const { data: uploads } = await supabase
+    .from("report_card_uploads")
+    .select("report_card_month_id, upload_type, status")
+    .in("report_card_month_id", monthIds);
+
+  // Build the result
+  const uploadTypes: UploadType[] = [
+    "operations_report", "kiosk", "time_slice", "service",
+    "food_over_base", "comparison_report", "shop_tracker",
+    "bonus_program", "pnl", "labor",
+  ];
+  const result = {} as Record<UploadType, Record<string, UploadStatus>>;
+
+  for (const ut of uploadTypes) {
+    result[ut] = {};
+    for (const sid of storeIds) {
+      result[ut][sid] = "not_uploaded";
+    }
+  }
+
+  for (const upload of uploads ?? []) {
+    const storeId = monthIdToStoreId.get(upload.report_card_month_id);
+    if (storeId && result[upload.upload_type as UploadType]) {
+      result[upload.upload_type as UploadType][storeId] = upload.status as UploadStatus;
+    }
+  }
+
+  return result;
 }
 
 export async function getRollupData(
