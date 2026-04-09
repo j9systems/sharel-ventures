@@ -20,26 +20,28 @@ export function HeaderNav() {
   };
 
   return (
-    <div className="flex items-center gap-4">
-      <Link href="/" className={linkClass("/")} title="Reconciliations">
-        <ArrowLeftRight className="h-4 w-4" />
-        <span>Reconciliations</span>
-      </Link>
-      <Link
-        href="/report-cards"
-        className={linkClass("/report-cards")}
-        title="Report Cards"
-      >
-        <ClipboardCheck className="h-4 w-4" />
-        <span>Report Cards</span>
-      </Link>
+    <>
+      <div className="flex items-center justify-center gap-4">
+        <Link href="/" className={linkClass("/")} title="Reconciliations">
+          <ArrowLeftRight className="h-4 w-4" />
+          <span>Reconciliations</span>
+        </Link>
+        <Link
+          href="/report-cards"
+          className={linkClass("/report-cards")}
+          title="Report Cards"
+        >
+          <ClipboardCheck className="h-4 w-4" />
+          <span>Report Cards</span>
+        </Link>
+      </div>
       <Link
         href="/settings"
-        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+        className="justify-self-end text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
         title="Settings"
       >
         <Settings className="h-5 w-5" />
       </Link>
-    </div>
+    </>
   );
 }
