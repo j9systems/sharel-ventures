@@ -17,7 +17,6 @@ interface BatchUploadCardProps {
   uploadType: UploadType;
   label: string;
   description: string;
-  entityId: string;
   year: number;
   month: number;
   stores: Store[];
@@ -29,7 +28,6 @@ export function BatchUploadCard({
   uploadType,
   label,
   description,
-  entityId,
   year,
   month,
   stores,
@@ -77,7 +75,6 @@ export function BatchUploadCard({
     try {
       const formData = new FormData();
       formData.set("file", file);
-      formData.set("entity_id", entityId);
       formData.set("year", String(year));
       formData.set("month", String(month));
       formData.set("upload_type", uploadType);
