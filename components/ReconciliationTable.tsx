@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { StatusBadge } from "./StatusBadge";
 import { markResultReviewed } from "@/app/actions";
 import type { MatchStatus } from "@/lib/types";
@@ -101,6 +101,12 @@ export function ReconciliationTable({ results, storeNames }: ReconciliationTable
   const [reviewNote, setReviewNote] = useState("");
   const [localResults, setLocalResults] = useState(results);
   const [submitting, setSubmitting] = useState(false);
+
+  // Sync localResults when the parent passes new results (e.g. tab switch)
+  useEffect(() => {
+    setLocalResults(results);
+    setStoreFilter("");
+  }, [results]);
 
   function getStoreName(storeNumber: string | undefined | null): string {
     if (!storeNumber) return "Unknown";
