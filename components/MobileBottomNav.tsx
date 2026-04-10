@@ -22,7 +22,7 @@ export function MobileBottomNav() {
     }`;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--background)] px-2 pb-[env(safe-area-inset-bottom)] pt-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--background)] px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-around">
         <Link href="/" className={linkClass("/")} title="Reconciliations">
           <ArrowLeftRight className="h-5 w-5" />
