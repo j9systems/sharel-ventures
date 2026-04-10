@@ -50,10 +50,32 @@ export function UploadPanel(props: UploadPanelProps) {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounter.current++;
+      if (!disabled) setIsDragOver(true);
+    },
+    [disabled]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragOver(false);
+    }
+  }, []);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      dragCounter.current = 0;
       setIsDragOver(false);
       if (disabled) return;
       const files = Array.from(e.dataTransfer.files ?? []);
@@ -100,12 +122,6 @@ export function UploadPanel(props: UploadPanelProps) {
 
   const dropZone = (
     <div
-      onDragOver={(e) => {
-        e.preventDefault();
-        setIsDragOver(true);
-      }}
-      onDragLeave={() => setIsDragOver(false)}
-      onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       className={cn(
         "flex flex-col items-center justify-center py-8 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
@@ -127,7 +143,18 @@ export function UploadPanel(props: UploadPanelProps) {
   );
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+    <div
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={cn(
+        "rounded-xl border bg-[var(--card)] p-6 transition-colors",
+        isDragOver
+          ? "border-[var(--primary)] bg-[var(--primary)]/5"
+          : "border-[var(--border)]"
+      )}
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-[var(--muted-foreground)]">{title}</h3>
         {multiple && hasFiles && (
