@@ -137,7 +137,7 @@ export async function runReconciliation(
 
     // Exact amount match (+500)
     if (amountDiff < 0.005) {
-      score += 500;
+      score += 2000;
     } else {
       // Closer amounts score higher (0-499 range)
       score += Math.max(0, Math.round(499 * (1 - amountDiff / 5.0)));
