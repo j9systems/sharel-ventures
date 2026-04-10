@@ -1,11 +1,10 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,7 +30,8 @@ function LoginForm() {
       return;
     }
 
-    router.push("/");
+    // Hard navigation to ensure proxy runs fresh with the new auth cookies
+    window.location.href = "/";
   }
 
   return (
