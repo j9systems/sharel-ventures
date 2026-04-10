@@ -127,12 +127,12 @@ export async function runReconciliation(
     let score = 0;
 
     // Store number match is the strongest signal (+1000)
-    if (
-      rti.store_number &&
-      bank.store_number &&
-      rti.store_number === bank.store_number
-    ) {
-      score += 1000;
+    if (rti.store_number && bank.store_number) {
+      if (rti.store_number === bank.store_number) {
+        score += 1000;
+      } else {
+        return -1;
+      }
     }
 
     // Exact amount match (+500)
