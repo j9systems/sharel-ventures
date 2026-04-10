@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import type { User, SupabaseClient, AuthChangeEvent, Session } from "@supabase/supabase-js";
 
@@ -16,7 +15,6 @@ interface TeamMember {
 }
 
 export function useAuth() {
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [teamMember, setTeamMember] = useState<TeamMember | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,8 +71,8 @@ export function useAuth() {
   const signOut = useCallback(async () => {
     const supabase = getClient();
     await supabase.auth.signOut();
-    router.push("/login");
-  }, [router]);
+    window.location.href = "/login";
+  }, []);
 
   return { user, teamMember, loading, signOut };
 }
