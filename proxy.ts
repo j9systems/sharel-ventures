@@ -15,7 +15,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const response = NextResponse.next();
+  // Follow the official Supabase pattern: re-create the response when cookies change
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,10 +27,20 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          for (const { name, value, options } of cookiesToSet) {
-            request.cookies.set(name, value);
-            response.cookies.set(name, value, options);
-          }
+          // Update request cookies so server components can read fresh tokens
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          // Re-create the response with the updated request
+          supabaseResponse = NextResponse.next({ request });
+          // Set response cookies so the browser receives the updated tokens.
+          // Explicitly set httpOnly: false so the browser client can read them.
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              httpOnly: false,
+            })
+          );
         },
       },
     }
@@ -60,7 +71,6 @@ export async function proxy(request: NextRequest) {
     .single();
 
   if (!teamMember) {
-    // Sign them out and redirect to login with error
     await supabase.auth.signOut();
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -68,7 +78,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return response;
+  return supabaseResponse;
 }
 
 export const config = {

@@ -27,24 +27,43 @@ export function useAuth() {
     return supabaseRef.current!;
   }
 
+  async function fetchTeamMember(supabase: SupabaseClient, userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("team_members")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("team_members query error:", error.message);
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.error("team_members fetch failed:", err);
+      return null;
+    }
+  }
+
   useEffect(() => {
     const supabase = getClient();
 
     async function loadSession() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        setUser(session.user);
-        const { data } = await supabase
-          .from("team_members")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .single();
-        setTeamMember(data);
+        if (session?.user) {
+          setUser(session.user);
+          const tm = await fetchTeamMember(supabase, session.user.id);
+          setTeamMember(tm);
+        }
+      } catch (err) {
+        console.error("loadSession failed:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     loadSession();
@@ -54,12 +73,8 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        const { data } = await supabase
-          .from("team_members")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .single();
-        setTeamMember(data);
+        const tm = await fetchTeamMember(supabase, session.user.id);
+        setTeamMember(tm);
       } else {
         setTeamMember(null);
       }
@@ -69,8 +84,12 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
-    const supabase = getClient();
-    await supabase.auth.signOut();
+    try {
+      const supabase = getClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore — we redirect regardless
+    }
     window.location.href = "/login";
   }, []);
 

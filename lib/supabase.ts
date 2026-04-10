@@ -13,7 +13,12 @@ export function getSupabase(): SupabaseClient {
       );
     }
 
-    _supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Server actions run as "use server" — use the service role key to
+    // bypass RLS. Falls back to anon key if the service role key is not set.
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const key = serviceRoleKey || supabaseAnonKey;
+
+    _supabase = createClient(supabaseUrl, key);
   }
   return _supabase;
 }
