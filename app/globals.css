@@ -96,3 +96,10 @@ body {
 * {
   border-color: var(--border);
 }
+
+/* Bottom padding for mobile portrait to account for fixed bottom nav */
+@media (max-width: 767px) and (orientation: portrait) {
+  main {
+    padding-bottom: 4rem;
+  }
+}
