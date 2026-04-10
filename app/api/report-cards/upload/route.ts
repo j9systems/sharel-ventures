@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
           parsedMetrics = parseBonusProgram(wb, store.store_number, month);
           break;
         case "pnl":
-          parsedMetrics = parsePnl(wb, month, year);
+          parsedMetrics = parsePnl(wb, month, year, store.store_number);
           break;
         case "labor":
           parsedMetrics = parseLabor(wb, store.store_number, existingAllNetSales);

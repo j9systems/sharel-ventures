@@ -92,17 +92,6 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buffer, { type: "buffer" });
 
-    // For pnl, parse once (entity-level, no store_number)
-    let pnlMetrics: PartialMetrics | null = null;
-    if (uploadType === "pnl") {
-      try {
-        pnlMetrics = parsePnl(wb, month, year);
-      } catch (e) {
-        // Will be applied as error to all stores below
-        pnlMetrics = null;
-      }
-    }
-
     const errors: { store_number: string; error: string }[] = [];
     let succeeded = 0;
 
@@ -193,10 +182,7 @@ export async function POST(request: NextRequest) {
               parsedMetrics = parseBonusProgram(wb, store.store_number, month);
               break;
             case "pnl":
-              if (!pnlMetrics) {
-                throw new Error("P&L parse failed for this entity");
-              }
-              parsedMetrics = pnlMetrics;
+              parsedMetrics = parsePnl(wb, month, year, store.store_number);
               break;
             case "labor":
               parsedMetrics = parseLabor(wb, store.store_number, existingAllNetSales);
