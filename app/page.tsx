@@ -69,8 +69,12 @@ export default function HomePage() {
   const handleRtiFilesAdd = useCallback((files: File[]) => {
     setError("");
     setRtiFiles((prev) => {
-      const existingNames = new Set(prev.map((f) => f.name));
-      const newFiles = files.filter((f) => !existingNames.has(f.name));
+      const existingKeys = new Set(
+        prev.map((f) => `${f.name}\0${f.size}\0${f.lastModified}`)
+      );
+      const newFiles = files.filter(
+        (f) => !existingKeys.has(`${f.name}\0${f.size}\0${f.lastModified}`)
+      );
       return [...prev, ...newFiles];
     });
   }, []);
@@ -86,8 +90,12 @@ export default function HomePage() {
   const handleBankFilesAdd = useCallback((files: File[]) => {
     setError("");
     setBankFiles((prev) => {
-      const existingNames = new Set(prev.map((f) => f.name));
-      const newFiles = files.filter((f) => !existingNames.has(f.name));
+      const existingKeys = new Set(
+        prev.map((f) => `${f.name}\0${f.size}\0${f.lastModified}`)
+      );
+      const newFiles = files.filter(
+        (f) => !existingKeys.has(`${f.name}\0${f.size}\0${f.lastModified}`)
+      );
       return [...prev, ...newFiles];
     });
   }, []);
