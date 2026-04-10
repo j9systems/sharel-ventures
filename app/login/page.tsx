@@ -18,20 +18,27 @@ function LoginForm() {
     setError("");
     setLoading(true);
 
-    const supabase = getSupabaseBrowser();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (signInError) {
-      setError("Invalid email or password");
+      if (signInError) {
+        setError("Invalid email or password");
+        setLoading(false);
+        return;
+      }
+
+      // Hard navigation to ensure proxy runs fresh with the new auth cookies
+      window.location.href = "/";
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Something went wrong. Try again."
+      );
       setLoading(false);
-      return;
     }
-
-    // Hard navigation to ensure proxy runs fresh with the new auth cookies
-    window.location.href = "/";
   }
 
   return (
@@ -104,11 +111,11 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-8">
           <img
             src="https://res.cloudinary.com/duy32f0q4/image/upload/q_auto/f_auto/v1775746619/Untitled_design_1_vbkzsn.png"
-            alt="Sherel-NGEN"
+            alt="Sharel-NGEN"
             className="h-16 w-16 rounded-xl object-cover mb-4"
           />
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-            Sherel-NGEN
+            Sharel-NGEN
           </h1>
         </div>
 
