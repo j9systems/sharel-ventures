@@ -27,7 +27,6 @@ ALTER TABLE public.entities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reconciliation_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reconciliation_results ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reconciliation_uploads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.report_card_months ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.report_card_uploads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.report_card_metrics ENABLE ROW LEVEL SECURITY;
@@ -41,7 +40,7 @@ DECLARE
 BEGIN
   FOREACH tbl IN ARRAY ARRAY[
     'entities', 'stores', 'reconciliation_sessions',
-    'reconciliation_results', 'reconciliation_uploads',
+    'reconciliation_results',
     'report_card_months', 'report_card_uploads',
     'report_card_metrics', 'report_card_prior_year_overrides'
   ]
