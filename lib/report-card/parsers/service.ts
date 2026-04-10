@@ -1,13 +1,13 @@
 import type { WorkBook } from "xlsx";
 import type { PartialMetrics } from "../types";
-import { sheetToRows, toNum } from "./utils";
+import { getSheet, sheetToRows, toNum } from "./utils";
 
 export function parseService(
   wb: WorkBook,
   storePosition: number
 ): PartialMetrics {
   const metrics: PartialMetrics = {};
-  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const sheet = getSheet(wb, "service") ?? wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return metrics;
 
   const rows = sheetToRows(sheet);

@@ -84,6 +84,7 @@ export const STORE_NAME_TO_NUMBER: Record<string, string> = {
   "West Henrietta": "3090",
   "Waterloo": "3481",
   "Farmington": "7066",
+  "Perinton": "10413",
   "Perinton Square": "10413",
   "Marketplace": "11172",
   "Ovid": "25738",
