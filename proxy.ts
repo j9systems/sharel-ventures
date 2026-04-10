@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -45,8 +46,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Check that a team_members record exists for this user
-  const { data: teamMember } = await supabase
+  // Check that a team_members record exists for this user.
+  // Use the service role client to bypass RLS — this runs server-side only.
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: teamMember } = await admin
     .from("team_members")
     .select("id")
     .eq("user_id", user.id)
