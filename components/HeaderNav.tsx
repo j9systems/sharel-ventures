@@ -2,10 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, ClipboardCheck, ArrowLeftRight } from "lucide-react";
+import {
+  Settings,
+  ClipboardCheck,
+  ArrowLeftRight,
+  Users,
+  LogOut,
+} from "lucide-react";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 export function HeaderNav() {
   const pathname = usePathname();
+  const { teamMember, signOut } = useAuth();
 
   const linkClass = (href: string) => {
     const isActive =
@@ -34,14 +42,29 @@ export function HeaderNav() {
           <ClipboardCheck className="h-4 w-4" />
           <span>Report Cards</span>
         </Link>
+        {teamMember?.role === "Admin" && (
+          <Link href="/team" className={linkClass("/team")} title="Team">
+            <Users className="h-4 w-4" />
+            <span>Team</span>
+          </Link>
+        )}
       </div>
-      <Link
-        href="/settings"
-        className="justify-self-end text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-        title="Settings"
-      >
-        <Settings className="h-5 w-5" />
-      </Link>
+      <div className="flex items-center gap-3 justify-self-end">
+        <Link
+          href="/settings"
+          className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          title="Settings"
+        >
+          <Settings className="h-5 w-5" />
+        </Link>
+        <button
+          onClick={signOut}
+          className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          title="Sign out"
+        >
+          <LogOut className="h-5 w-5" />
+        </button>
+      </div>
     </>
   );
 }
