@@ -15,19 +15,19 @@ interface ScorecardViewProps {
 }
 
 // Section definitions
-interface MetricRow {
+export interface MetricRow {
   label: string;
   key: string;
   indent?: boolean;
 }
 
-interface ScorecardSection {
+export interface ScorecardSection {
   title: string;
   requiredUploads: UploadType[];
   rows: MetricRow[];
 }
 
-const SECTIONS: ScorecardSection[] = [
+export const SECTIONS: ScorecardSection[] = [
   {
     title: "Sales & TCC Recap",
     requiredUploads: ["operations_report", "kiosk", "time_slice"],
@@ -223,7 +223,7 @@ const SECTIONS: ScorecardSection[] = [
   },
 ];
 
-function formatValue(val: unknown, key: string): string {
+export function formatValue(val: unknown, key: string): string {
   if (val == null) return "—";
   const fmt: MetricFormat = METRIC_FORMATS[key] ?? "number";
 
