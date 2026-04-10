@@ -1,7 +1,7 @@
 import type { WorkBook } from "xlsx";
 import type { PartialMetrics } from "../types";
 import { STORE_NAME_TO_NUMBER } from "../constants";
-import { getSheet, sheetToRows, toNum, safeDivide } from "./utils";
+import { sheetToRows, toNum, safeDivide } from "./utils";
 
 export function parseLabor(
   wb: WorkBook,
@@ -10,7 +10,10 @@ export function parseLabor(
 ): PartialMetrics {
   const metrics: PartialMetrics = {};
 
-  const sheet = getSheet(wb, "labor");
+  const sheet = wb.SheetNames
+    .filter(n => n.toLowerCase().includes("labor") && !n.toLowerCase().includes("accrual"))
+    .map(n => wb.Sheets[n])
+    .find(Boolean) ?? null;
   if (!sheet) return metrics;
 
   const rows = sheetToRows(sheet);
