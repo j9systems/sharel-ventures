@@ -7,13 +7,12 @@ import {
   ClipboardCheck,
   ArrowLeftRight,
   Users,
-  LogOut,
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 
 export function HeaderNav() {
   const pathname = usePathname();
-  const { teamMember, signOut } = useAuth();
+  const { teamMember } = useAuth();
 
   const linkClass = (href: string) => {
     const isActive =
@@ -57,13 +56,6 @@ export function HeaderNav() {
         >
           <Settings className="h-5 w-5" />
         </Link>
-        <button
-          onClick={signOut}
-          className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-          title="Sign out"
-        >
-          <LogOut className="h-5 w-5" />
-        </button>
       </div>
     </>
   );
