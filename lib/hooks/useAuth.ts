@@ -39,9 +39,13 @@ export function useAuth() {
           data: { session },
         } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
+        // Only mark loading done if there's no user (no team member to fetch).
+        // When a user exists, loading stays true until fetchTeamMember resolves.
+        if (!session?.user) {
+          setLoading(false);
+        }
       } catch (err) {
         console.error("loadSession failed:", err);
-      } finally {
         setLoading(false);
       }
     }
@@ -87,6 +91,8 @@ export function useAuth() {
       } catch (err) {
         console.error("team_members fetch failed:", err);
         if (!cancelled) setTeamMember(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
