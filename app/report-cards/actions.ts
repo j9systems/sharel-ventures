@@ -206,6 +206,85 @@ export async function getBatchUploadStatuses(
   return result;
 }
 
+export async function getMasterReportData(
+  year: number,
+  month: number,
+  compareMode: "month" | "year",
+  entityId?: string
+): Promise<{
+  stores: Store[];
+  storeMetrics: Record<
+    string,
+    { current: ReportCardMetrics | null; comparison: ReportCardMetrics | null }
+  >;
+}> {
+  const supabase = getSupabase();
+
+  let storeQuery = supabase
+    .from("stores")
+    .select("id, entity_id, store_number, display_name")
+    .order("store_number");
+  if (entityId) {
+    storeQuery = storeQuery.eq("entity_id", entityId);
+  }
+  const { data: stores } = await storeQuery;
+  if (!stores || stores.length === 0) return { stores: [], storeMetrics: {} };
+
+  const storeIds = stores.map((s) => s.id);
+
+  // Determine comparison period
+  let compYear: number;
+  let compMonth: number;
+  if (compareMode === "year") {
+    compYear = year - 1;
+    compMonth = month;
+  } else {
+    if (month === 1) {
+      compYear = year - 1;
+      compMonth = 12;
+    } else {
+      compYear = year;
+      compMonth = month - 1;
+    }
+  }
+
+  // Fetch months for both current and comparison periods
+  const { data: months } = await supabase
+    .from("report_card_months")
+    .select("*, report_card_metrics(*)")
+    .in("store_id", storeIds)
+    .or(
+      `and(year.eq.${year},month.eq.${month}),and(year.eq.${compYear},month.eq.${compMonth})`
+    );
+
+  const storeMetrics: Record<
+    string,
+    { current: ReportCardMetrics | null; comparison: ReportCardMetrics | null }
+  > = {};
+
+  for (const store of stores) {
+    const currentMonth = (months ?? []).find(
+      (m) => m.store_id === store.id && m.year === year && m.month === month
+    );
+    const comparisonMonth = (months ?? []).find(
+      (m) =>
+        m.store_id === store.id &&
+        m.year === compYear &&
+        m.month === compMonth
+    );
+
+    storeMetrics[store.id] = {
+      current:
+        (currentMonth?.report_card_metrics as ReportCardMetrics | null) ?? null,
+      comparison:
+        (comparisonMonth?.report_card_metrics as ReportCardMetrics | null) ??
+        null,
+    };
+  }
+
+  return { stores, storeMetrics };
+}
+
 export async function getRollupData(
   year: number,
   entityId?: string

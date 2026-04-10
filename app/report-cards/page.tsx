@@ -16,6 +16,7 @@ import {
 import { UploadCard } from "./UploadCard";
 import { ScorecardView } from "./ScorecardView";
 import { RollupView } from "./RollupView";
+import { MasterReportView } from "./MasterReportView";
 import { PriorYearModal } from "./PriorYearModal";
 import { BatchUploadDrawer } from "./BatchUploadDrawer";
 
@@ -38,6 +39,9 @@ export default function ReportCardsPage() {
 
   // Upload drawer
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<"rollup" | "master">("rollup");
 
   // Rollup
   const [rollupData, setRollupData] = useState<
@@ -198,16 +202,50 @@ export default function ReportCardsPage() {
         </div>
       </div>
 
-      {/* No store selected — entity-level rollup view */}
+      {/* No store selected — tabbed view */}
       {!selectedStoreId && (
-        <RollupView
-          data={rollupData}
-          year={selectedYear}
-          onSelectStore={(storeId) => {
-            setSelectedStoreId(storeId);
-            setSelectedMonth(null);
-          }}
-        />
+        <div>
+          <div className="flex gap-1 border-b border-[var(--border)] mb-4">
+            <button
+              onClick={() => setActiveTab("rollup")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "rollup"
+                  ? "border-[var(--primary)] text-[var(--foreground)]"
+                  : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              Store Rollup
+            </button>
+            <button
+              onClick={() => setActiveTab("master")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "master"
+                  ? "border-[var(--primary)] text-[var(--foreground)]"
+                  : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              Master Report
+            </button>
+          </div>
+
+          {activeTab === "rollup" && (
+            <RollupView
+              data={rollupData}
+              year={selectedYear}
+              onSelectStore={(storeId) => {
+                setSelectedStoreId(storeId);
+                setSelectedMonth(null);
+              }}
+            />
+          )}
+
+          {activeTab === "master" && (
+            <MasterReportView
+              year={selectedYear}
+              entityId={selectedEntityId || undefined}
+            />
+          )}
+        </div>
       )}
 
       {/* Store selected — show month grid */}
