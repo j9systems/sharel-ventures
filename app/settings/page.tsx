@@ -35,18 +35,28 @@ export default function SettingsPage() {
     }
 
     setPwLoading(true);
-    const supabase = getSupabaseBrowser();
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
 
-    if (error) {
-      setPwMessage({ type: "error", text: error.message });
-    } else {
-      setPwMessage({ type: "success", text: "Password updated successfully." });
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      if (error) {
+        setPwMessage({ type: "error", text: error.message });
+      } else {
+        setPwMessage({
+          type: "success",
+          text: "Password updated successfully.",
+        });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch (err) {
+      setPwMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to update password.",
+      });
     }
     setPwLoading(false);
   }
