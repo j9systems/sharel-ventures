@@ -416,7 +416,8 @@ export async function uploadAndReconcileAuto(
 
       const entity = await detectEntityFromBankRows(parsed.rows);
       if (!entity) {
-        return { success: false, error: `Could not detect entity for bank file "${bankFile.name}"` };
+        // Entity detection failed — skip this file (will still be reconciled if assigned manually later)
+        continue;
       }
 
       if (!bankByEntity[entity.entityId]) {
@@ -425,20 +426,12 @@ export async function uploadAndReconcileAuto(
       bankByEntity[entity.entityId].files.push({ file: bankFile, result: parsed });
     }
 
-    // Validate every RTI entity has at least one bank file
-    for (const entityId of Object.keys(rtiByEntity)) {
-      if (!bankByEntity[entityId]) {
-        return {
-          success: false,
-          error: `No bank files detected for entity "${rtiByEntity[entityId].entityName}". Each RTI entity needs at least one matching bank file.`,
-        };
-      }
-    }
-
     // Process each entity
     const sessions: AutoReconcileSessionResult[] = [];
 
     for (const entityId of Object.keys(rtiByEntity)) {
+      if (!bankByEntity[entityId]) continue; // No bank files for this entity — skip
+
       const rtiGroup = rtiByEntity[entityId];
 
       // Merge all RTI rows across files for this entity
