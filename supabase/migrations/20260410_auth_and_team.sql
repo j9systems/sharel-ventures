@@ -49,12 +49,24 @@ BEGIN
   END LOOP;
 END $$;
 
--- team_members: authenticated users can read, only admins can write
+-- team_members: authenticated users can read, only admins can write.
+-- Write policies must be per-operation (INSERT/UPDATE/DELETE) rather than FOR ALL,
+-- because FOR ALL applies its USING clause to SELECT too, and the sub-query on
+-- team_members triggers infinite recursion with the policy evaluation.
 CREATE POLICY "team_members_read" ON public.team_members
   FOR SELECT TO authenticated USING (true);
 
-CREATE POLICY "team_members_write" ON public.team_members
-  FOR ALL TO authenticated
+CREATE POLICY "team_members_insert" ON public.team_members
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.team_members tm
+      WHERE tm.user_id = auth.uid() AND tm.role = 'Admin'
+    )
+  );
+
+CREATE POLICY "team_members_update" ON public.team_members
+  FOR UPDATE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.team_members tm
@@ -62,6 +74,15 @@ CREATE POLICY "team_members_write" ON public.team_members
     )
   )
   WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.team_members tm
+      WHERE tm.user_id = auth.uid() AND tm.role = 'Admin'
+    )
+  );
+
+CREATE POLICY "team_members_delete" ON public.team_members
+  FOR DELETE TO authenticated
+  USING (
     EXISTS (
       SELECT 1 FROM public.team_members tm
       WHERE tm.user_id = auth.uid() AND tm.role = 'Admin'
