@@ -242,7 +242,7 @@ export async function getRollupData(
       .filter((m) => m.store_id === store.id)
       .map((m) => ({
         ...m,
-        metrics: m.report_card_metrics?.[0] ?? null,
+        metrics: (m.report_card_metrics as ReportCardMetrics | null) ?? null,
       })),
   }));
 }
