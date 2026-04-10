@@ -27,24 +27,9 @@ export function useAuth() {
     return supabaseRef.current!;
   }
 
-  async function fetchTeamMember(supabase: SupabaseClient, userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from("team_members")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (error) {
-        console.error("team_members query error:", error.message);
-        return null;
-      }
-      return data;
-    } catch (err) {
-      console.error("team_members fetch failed:", err);
-      return null;
-    }
-  }
-
+  // Listen for auth state changes — keep callback synchronous to avoid
+  // deadlocking the Supabase auth lock (async callbacks that call back into
+  // the Supabase client will deadlock on the internal navigator lock).
   useEffect(() => {
     const supabase = getClient();
 
@@ -53,12 +38,7 @@ export function useAuth() {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          setUser(session.user);
-          const tm = await fetchTeamMember(supabase, session.user.id);
-          setTeamMember(tm);
-        }
+        setUser(session?.user ?? null);
       } catch (err) {
         console.error("loadSession failed:", err);
       } finally {
@@ -70,18 +50,52 @@ export function useAuth() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        const tm = await fetchTeamMember(supabase, session.user.id);
-        setTeamMember(tm);
-      } else {
+      if (!session?.user) {
         setTeamMember(null);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch team_members row whenever the authenticated user changes.
+  // This runs outside the auth lock so it cannot deadlock.
+  useEffect(() => {
+    if (!user) {
+      setTeamMember(null);
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = getClient();
+
+    async function fetchTeamMember() {
+      try {
+        const { data, error } = await supabase
+          .from("team_members")
+          .select("*")
+          .eq("user_id", user!.id)
+          .maybeSingle();
+        if (error) {
+          console.error("team_members query error:", error.message);
+          if (!cancelled) setTeamMember(null);
+          return;
+        }
+        if (!cancelled) setTeamMember(data);
+      } catch (err) {
+        console.error("team_members fetch failed:", err);
+        if (!cancelled) setTeamMember(null);
+      }
+    }
+
+    fetchTeamMember();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const signOut = useCallback(async () => {
     try {

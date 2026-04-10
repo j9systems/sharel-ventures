@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useTheme } from "@/components/ThemeProvider";
-import { ArrowLeft, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Sun, Moon, LogOut } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const { signOut } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -168,6 +170,20 @@ export default function SettingsPage() {
               {pwLoading ? "Updating..." : "Update Password"}
             </button>
           </form>
+        </div>
+
+        <div className="p-5 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+          <h3 className="text-sm font-medium mb-1">Account</h3>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            Sign out of your account on this device.
+          </p>
+          <button
+            onClick={signOut}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--destructive)] text-[var(--destructive)] text-sm font-medium hover:bg-[var(--destructive)]/10 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
         </div>
       </div>
     </div>
