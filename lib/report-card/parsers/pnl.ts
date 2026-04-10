@@ -6,7 +6,8 @@ import { sheetToRows, toNum } from "./utils";
 export function parsePnl(
   wb: WorkBook,
   month: number,
-  year: number
+  year: number,
+  storeNumber: string
 ): PartialMetrics {
   const metrics: PartialMetrics = {};
 
@@ -23,6 +24,30 @@ export function parsePnl(
 
   const rows = sheetToRows(sheet);
 
+  // Find the section for the requested store.
+  // Each section starts with "Comparative Profit & Loss Statement" in col[1].
+  // The store number appears 2 rows later in a row like "  STORE NO: 10413".
+  let sectionStart = -1;
+  let sectionEnd = rows.length;
+
+  for (let i = 0; i < rows.length; i++) {
+    const col1 = String(rows[i][1] ?? "");
+    if (col1.includes("STORE NO:") && col1.includes(storeNumber)) {
+      sectionStart = i;
+      // Find the next section header to determine section end
+      for (let j = i + 1; j < rows.length; j++) {
+        const nextCol1 = String(rows[j][1] ?? "");
+        if (nextCol1.includes("Comparative Profit & Loss Statement")) {
+          sectionEnd = j;
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  if (sectionStart === -1) return metrics;
+
   // col 0 = Account code, col 1 = Label, col 2 = Current $, col 3 = Current %, col 4 = Budget $, col 5 = Budget %
 
   // Track labor components for total
@@ -33,7 +58,8 @@ export function parsePnl(
   let labor717Pct: number | null = null;
   let labor717GoalPct: number | null = null;
 
-  for (const row of rows) {
+  for (let i = sectionStart; i < sectionEnd; i++) {
+    const row = rows[i];
     const code = toNum(row[0]);
     const label = String(row[1] ?? "").trim();
 
