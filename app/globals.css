@@ -100,6 +100,6 @@ body {
 /* Bottom padding for mobile portrait to account for fixed bottom nav */
 @media (max-width: 767px) and (orientation: portrait) {
   main {
-    padding-bottom: 5.75rem;
+    padding-bottom: 6.5rem;
   }
 }

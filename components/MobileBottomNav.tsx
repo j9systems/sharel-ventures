@@ -15,14 +15,14 @@ export function MobileBottomNav() {
       : pathname.startsWith(href);
 
   const linkClass = (href: string) =>
-    `flex flex-col items-center gap-0.5 text-xs transition-colors ${
+    `flex flex-1 flex-col items-center gap-0.5 text-xs transition-colors ${
       isActive(href)
         ? "text-[var(--primary)] font-medium"
         : "text-[var(--muted-foreground)]"
     }`;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--background)] px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--background)] px-2 pb-[max(2.25rem,env(safe-area-inset-bottom))] pt-2">
       <div className="flex items-center justify-around">
         <Link href="/" className={linkClass("/")} title="Reconciliations">
           <ArrowLeftRight className="h-5 w-5" />
