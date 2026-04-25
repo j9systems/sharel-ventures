@@ -47,7 +47,7 @@ export const SECTIONS: ScorecardSection[] = [
       { label: "In-Store Sales", key: "in_store_sales", indent: true },
       { label: "In-Store TCC", key: "in_store_tcc", indent: true },
       { label: "In-Store % of Sales", key: "in_store_pct_of_sales", indent: true },
-      { label: "Overnight Sales", key: "overnight_sales", indent: true },
+      { label: "Late Night Sales", key: "overnight_sales", indent: true },
       { label: "Kiosk Sales", key: "kiosk_sales", indent: true },
       { label: "Kiosk TCC", key: "kiosk_tcc", indent: true },
       { label: "Kiosk % of Lobby Sales", key: "kiosk_pct_of_lobby_sales", indent: true },
@@ -234,6 +234,13 @@ export function formatValue(val: unknown, key: string): string {
         currency: "USD",
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
+      }).format(Number(val));
+    case "currency_precise":
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       }).format(Number(val));
     case "percent":
       return `${(Number(val) * (Math.abs(Number(val)) <= 1 ? 100 : 1)).toFixed(2)}%`;

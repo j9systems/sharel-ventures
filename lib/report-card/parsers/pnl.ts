@@ -110,11 +110,8 @@ export function parsePnl(
       metrics.non_product_goal_pct = toNum(row[5]);
     }
 
-    // PACE / Gross Profit
-    if (
-      label.toUpperCase().includes("GROSS PROFIT") ||
-      label.toUpperCase().includes("PACE")
-    ) {
+    // PACE = Profit After Controllables (not Gross Profit)
+    if (label.toUpperCase().includes("PROFIT AFTER CONTROLLABLES")) {
       const paceVal = toNum(row[3]);
       if (paceVal != null) {
         metrics.pace_actual_pct = paceVal;

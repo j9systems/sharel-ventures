@@ -18,7 +18,7 @@ export const UPLOAD_TYPES: {
   {
     type: "time_slice",
     label: "Time Slice Summary",
-    description: "Overnight sales and in-store breakdowns by time window",
+    description: "Late night sales and in-store breakdowns by time window",
   },
   {
     type: "service",
@@ -203,7 +203,7 @@ export const METRIC_DIRECTIONS: Record<string, VarianceDirection> = {
 };
 
 // Format types for display
-export type MetricFormat = "currency" | "percent" | "number" | "time_sec" | "boolean";
+export type MetricFormat = "currency" | "currency_precise" | "percent" | "number" | "time_sec" | "boolean";
 
 export const METRIC_FORMATS: Record<string, MetricFormat> = {
   // Currency
@@ -222,13 +222,13 @@ export const METRIC_FORMATS: Record<string, MetricFormat> = {
   crew_dollars: "currency",
   total_labor_dollars: "currency",
   labor_diff_dollars: "currency",
-  avg_hourly_wage: "currency",
-  avg_check: "currency",
-  breakfast_avg_check: "currency",
-  dt_avg_check: "currency",
-  mcdelivery_avg_check: "currency",
-  mobile_order_avg_check: "currency",
-  kiosk_avg_check: "currency",
+  avg_hourly_wage: "currency_precise",
+  avg_check: "currency_precise",
+  breakfast_avg_check: "currency_precise",
+  dt_avg_check: "currency_precise",
+  mcdelivery_avg_check: "currency_precise",
+  mobile_order_avg_check: "currency_precise",
+  kiosk_avg_check: "currency_precise",
 
   // Percent
   breakfast_pct_of_sales: "percent",
