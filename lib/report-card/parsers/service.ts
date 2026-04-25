@@ -2,9 +2,22 @@ import type { WorkBook } from "xlsx";
 import type { PartialMetrics } from "../types";
 import { getSheet, sheetToRows, toNum } from "./utils";
 
+/**
+ * Parse peak speed-of-service data from the standalone Service (3 Peaks) file.
+ *
+ * The file has NO store number column — stores appear as consecutive groups
+ * separated by blank-timeslice rows. We rely on `storePosition` to pick the
+ * right group, which assumes the file lists stores in ascending store-number
+ * order (matching the batch upload's sort).
+ *
+ * @param expectedStoreCount - When provided, validates that the file's group
+ *   count matches. Returns empty metrics (with a console warning) on mismatch
+ *   to prevent silently assigning the wrong store's data.
+ */
 export function parseService(
   wb: WorkBook,
-  storePosition: number
+  storePosition: number,
+  expectedStoreCount?: number
 ): PartialMetrics {
   const metrics: PartialMetrics = {};
   const sheet = getSheet(wb, "service") ?? wb.Sheets[wb.SheetNames[0]];
@@ -22,7 +35,7 @@ export function parseService(
     const timeSlice = String(row[0] ?? "").trim();
 
     if (!timeSlice) {
-      // New store group starts — this row is the overall row
+      // New store group starts — this row is the overall/peak-average row
       if (currentGroup) {
         groups.push(currentGroup);
       }
@@ -35,13 +48,23 @@ export function parseService(
     groups.push(currentGroup);
   }
 
+  // Validate group count matches expected stores to catch entity-filter mismatches
+  if (expectedStoreCount != null && groups.length !== expectedStoreCount) {
+    console.warn(
+      `[parseService] Group count mismatch: file has ${groups.length} store groups ` +
+        `but expected ${expectedStoreCount}. Position-based matching may be wrong. ` +
+        `Skipping to avoid assigning wrong store data.`
+    );
+    return metrics;
+  }
+
   if (storePosition < 0 || storePosition >= groups.length) {
     return metrics;
   }
 
   const group = groups[storePosition];
 
-  // Overall row
+  // Overall row = peak average (weighted average across 3 peak windows)
   metrics.dt_oepe_peak_avg = toNum(group.overall[1]);
   metrics.r2p_peak_avg = toNum(group.overall[2]);
   metrics.kvs_peak_avg = toNum(group.overall[3]);

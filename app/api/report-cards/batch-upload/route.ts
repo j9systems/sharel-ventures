@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
               parsedMetrics = parseTimeSlice(wb, store.store_number, existingAllNetSales);
               break;
             case "service":
-              parsedMetrics = parseService(wb, i);
+              parsedMetrics = parseService(wb, i, stores.length);
               break;
             case "food_over_base":
               parsedMetrics = parseFoodOverBase(wb, store.store_number);
